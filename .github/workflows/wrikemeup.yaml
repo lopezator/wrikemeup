@@ -1,0 +1,32 @@
+name: wrikemeup bot
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  wrikemeup:
+    if: ${{ contains(github.event.comment.body, '@wrikemeup') }}
+    runs-on: ubuntu-latest
+
+    env:
+      GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GITHUB_REPO: ${{ github.event.repository.full_name }}
+      GITHUB_USERNAME: ${{ github.event.comment.user.login }}
+      GITHUB_COMMENT_BODY: ${{ github.event.comment.body }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.5'
+
+      - name: Build & run Wrike bot
+        env:
+          USERS: ${{ secrets.USERS }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          go run cmd/wmu/main.go
