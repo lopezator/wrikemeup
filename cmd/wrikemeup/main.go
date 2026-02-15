@@ -36,7 +36,7 @@ func main() {
 	case "sync-project":
 		handleSyncProject(wrikeClient, githubClient, config, user)
 	case "auto-link":
-		handleAutoLink(wrikeClient, githubClient, config, user)
+		handleAutoLink(wrikeClient, githubClient, config.GitHubIssueNumber, config, user)
 	case "sync-hours":
 		handleSyncHours(wrikeClient, githubClient, config, user)
 	case "bot-command":
@@ -148,6 +148,12 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 
 	// Calculate total hours
 	totalHours := metadata.Hours
+	totalDailyHours := make(map[string]float64)
+	
+	// Copy daily hours if present
+	for date, hours := range metadata.DailyHours {
+		totalDailyHours[date] = hours
+	}
 
 	// Automatically find ALL child issues that reference this parent
 	childIssues, err := githubClient.GetChildIssues(issueNum)
@@ -169,23 +175,51 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 				log.Printf("  - Issue #%d: %.2fh", childNum, childMetadata.Hours)
 				totalHours += childMetadata.Hours
 			}
+			// Aggregate daily hours from children
+			for date, hours := range childMetadata.DailyHours {
+				totalDailyHours[date] += hours
+			}
 		}
 	}
 
-	// Only log if there are hours to log
-	if totalHours == 0 {
-		log.Printf("No hours to sync for issue #%s", config.GitHubIssueNumber)
+	// Calculate incremental hours (delta since last sync)
+	hoursToLog := totalHours - metadata.LastSyncedHours
+	
+	// If using daily breakdown, log to specific dates
+	if len(totalDailyHours) > 0 {
+		// For daily hours, we need to track which dates are new
+		// For simplicity, log all daily hours (Wrike handles duplicates)
+		comment := fmt.Sprintf("Auto-synced from GitHub issue #%s (aggregated %d child issues)", config.GitHubIssueNumber, len(childIssues))
+		if len(childIssues) == 0 {
+			comment = fmt.Sprintf("Auto-synced from GitHub issue #%s", config.GitHubIssueNumber)
+		}
+		
+		if err := wrikeClient.LogDailyHours(metadata.WrikeTaskID, totalDailyHours, comment); err != nil {
+			log.Fatalf("wrikemeup: failed to log daily hours to Wrike: %v", err)
+		}
+		
+		log.Printf("Successfully synced %d days of hours to Wrike", len(totalDailyHours))
+	} else if hoursToLog > 0 {
+		// Incremental logging: only log the difference since last sync
+		comment := fmt.Sprintf("Auto-synced %.2fh from GitHub issue #%s (aggregated %d child issues)", hoursToLog, config.GitHubIssueNumber, len(childIssues))
+		if len(childIssues) == 0 {
+			comment = fmt.Sprintf("Auto-synced %.2fh from GitHub issue #%s", hoursToLog, config.GitHubIssueNumber)
+		}
+		
+		if err := wrikeClient.LogHours(metadata.WrikeTaskID, hoursToLog, comment); err != nil {
+			log.Fatalf("wrikemeup: failed to log hours to Wrike: %v", err)
+		}
+		
+		// Update the last synced hours in the issue body
+		if err := githubClient.UpdateLastSyncedHours(config.GitHubIssueNumber, totalHours); err != nil {
+			log.Printf("Warning: failed to update last synced hours: %v", err)
+		}
+		
+		log.Printf("Successfully synced %.2f incremental hours to Wrike", hoursToLog)
+	} else {
+		log.Printf("No new hours to sync for issue #%s (current: %.2f, last synced: %.2f)", 
+			config.GitHubIssueNumber, totalHours, metadata.LastSyncedHours)
 		return
-	}
-
-	// Log hours to Wrike
-	comment := fmt.Sprintf("Auto-synced from GitHub issue #%s (aggregated %d child issues)", config.GitHubIssueNumber, len(childIssues))
-	if len(childIssues) == 0 {
-		comment = fmt.Sprintf("Auto-synced from GitHub issue #%s", config.GitHubIssueNumber)
-	}
-
-	if err := wrikeClient.LogHours(metadata.WrikeTaskID, totalHours, comment); err != nil {
-		log.Fatalf("wrikemeup: failed to log hours to Wrike: %v", err)
 	}
 
 	// Post success comment

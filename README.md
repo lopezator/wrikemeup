@@ -8,14 +8,14 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 
 **Option 1: Using GitHub Projects Custom Field (Recommended)**
 1. Set "Wrike Parent" custom field to "Yes" → Bot creates Wrike task
-2. Log hours in child issues: `Hours: 4.5h`
-3. Edit or sync anytime with `@wrikemeup sync` → Hours synced to Wrike!
+2. Log hours in child issues: `Hours: 4.5h` (or `Hours: 2024-02-15: 4h, 2024-02-16: 3h`)
+3. Edit issue → Hours **automatically** sync to Wrike!
 4. Done! ✅
 
 **Option 2: Using Label**
 1. Add `wrike-parent` label to issue → Bot creates Wrike task
 2. Log hours in child issues: `Hours: 4.5h`
-3. Comment `@wrikemeup sync` to sync anytime (or close parent)
+3. Edit issue → Hours **automatically** sync to Wrike!
 4. Done! ✅
 
 **📖 [Complete Setup Guide →](SETUP_GUIDE.md)**
@@ -28,38 +28,47 @@ WrikeMeUp is a GitHub automation bot that seamlessly integrates GitHub issues wi
 
 - **🔗 Auto-link Issues to Wrike Tasks**: Automatically create and link Wrike tasks from GitHub issues
 - **⏱️ Hour Tracking**: Track hours in issue body or GitHub Projects custom fields
+- **📅 Daily Hour Breakdown**: Specify hours per date (e.g., `Hours: 2024-02-15: 4h, 2024-02-16: 3h`)
+- **🔄 Incremental Sync**: Only logs new hours since last sync - no duplicates!
 - **📊 Subtask Aggregation**: Automatically sum hours from child issues into parent Wrike tasks
 - **🤖 Multiple Workflows**: Support for both label-based and GitHub Projects custom fields
-- **💾 Manual Sync**: Use `@wrikemeup sync` to sync hours anytime without closing the issue
+- **⚡ Automatic Sync**: Hours sync automatically when you edit issues - no manual commands needed!
 - **☁️ Serverless**: Runs on GitHub Actions - no infrastructure needed!
 
 ## How It Works
 
-**Option 1: GitHub Projects Custom Field**
+**Automatic Hour Sync - No Commands Needed!**
 ```
-GitHub Project:
-├── Destinations Feature (#100)
-    Custom Field "Wrike Parent": Yes ← Bot creates Wrike task
-    Custom Field "Wrike Task ID": IEABC123 (auto-added)
+Day 1: Add Hours: 4h → Edit issue → Bot logs 4h to Wrike
+Day 2: Update to Hours: 8h → Edit issue → Bot logs 4h more (incremental!)
+Day 3: Update to Hours: 12h → Edit issue → Bot logs 4h more
+
+Result: Total 12h in Wrike ✅ No duplicates!
+```
+
+**Daily Breakdown Support**
+```
+Hours: 2024-02-15: 4h, 2024-02-16: 3h, 2024-02-17: 5h
+
+Edit issue → Bot logs:
+- 4h on Feb 15
+- 3h on Feb 16  
+- 5h on Feb 17
+
+Perfect for tracking which hours were on which day! ✅
+```
+
+**Child Aggregation**
+```
+├── Destinations Feature (#100) [wrike-parent]
+    Wrike Task ID: IEABC123
+    Last Synced: 0h
     │
     ├── Task A (#101) - Hours: 1h
     ├── Task B (#102) - Hours: 3.5h
     └── Task C (#103) - Hours: 5h
 
-Comment: @wrikemeup sync → Bot logs 9.5h to Wrike task ✅
-```
-
-**Option 2: Label-Based**
-```
-GitHub Issue Hierarchy:
-├── Destinations Feature (#100) [wrike-parent] ← Bot creates Wrike task
-    Wrike Task ID: IEABC123 (auto-added by bot)
-    │
-    ├── Task A (#101) - Hours: 1h
-    ├── Task B (#102) - Hours: 3.5h
-    └── Task C (#103) - Hours: 5h
-
-Comment: @wrikemeup sync OR close issue → Bot logs 9.5h to Wrike task ✅
+Edit parent → Bot aggregates 9.5h to Wrike ✅
 ```
 
 ## Quick Example

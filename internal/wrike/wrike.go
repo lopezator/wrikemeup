@@ -107,16 +107,18 @@ func (c *Client) GetTimeLogs(wrikeTaskID string) ([]byte, error) {
 	return body, nil
 }
 
-// LogHours logs hours to a Wrike task.
+// LogHours logs hours to a Wrike task for today's date.
 func (c *Client) LogHours(wrikeTaskID string, hours float64, comment string) error {
-	url := fmt.Sprintf("https://app-eu.wrike.com/api/v4/tasks/%s/timelogs", wrikeTaskID)
+	return c.LogHoursForDate(wrikeTaskID, hours, time.Now().Format("2006-01-02"), comment)
+}
 
-	// Use current date for the timelog
-	trackedDate := time.Now().Format("2006-01-02")
+// LogHoursForDate logs hours to a Wrike task for a specific date.
+func (c *Client) LogHoursForDate(wrikeTaskID string, hours float64, date string, comment string) error {
+	url := fmt.Sprintf("https://app-eu.wrike.com/api/v4/tasks/%s/timelogs", wrikeTaskID)
 
 	payload := map[string]interface{}{
 		"hours":       hours,
-		"trackedDate": trackedDate,
+		"trackedDate": date,
 		"comment":     comment,
 	}
 
@@ -143,5 +145,16 @@ func (c *Client) LogHours(wrikeTaskID string, hours float64, comment string) err
 		return fmt.Errorf("wrike: API returned error: %s (status: %d)", string(body), resp.StatusCode)
 	}
 
+	return nil
+}
+
+// LogDailyHours logs hours across multiple dates to a Wrike task.
+func (c *Client) LogDailyHours(wrikeTaskID string, dailyHours map[string]float64, comment string) error {
+	for date, hours := range dailyHours {
+		dateComment := fmt.Sprintf("%s (Date: %s)", comment, date)
+		if err := c.LogHoursForDate(wrikeTaskID, hours, date, dateComment); err != nil {
+			return fmt.Errorf("failed to log %v hours for %s: %w", hours, date, err)
+		}
+	}
 	return nil
 }

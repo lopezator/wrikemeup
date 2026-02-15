@@ -13,21 +13,25 @@ import (
 
 // IssueMetadata holds metadata about a GitHub issue.
 type IssueMetadata struct {
-	Number      int
-	Title       string
-	Body        string
-	WrikeTaskID string
-	Hours       float64
-	SubIssues   []int
+	Number         int
+	Title          string
+	Body           string
+	WrikeTaskID    string
+	Hours          float64
+	DailyHours     map[string]float64 // Date -> Hours mapping
+	LastSyncedHours float64            // Track last synced amount for incremental logging
+	SubIssues      []int
 }
 
 var (
-	hoursRegex       = regexp.MustCompile(`(?i)hours?:\s*([\d.]+)h?`)
-	wrikeTaskRegex   = regexp.MustCompile(`(?i)wrike\s*task\s*id?:\s*([A-Za-z0-9_-]+)`)
-	subIssuesRegex   = regexp.MustCompile(`#(\d+)`)
-	parentRefRegex   = regexp.MustCompile(`(?i)(parent|related to|part of)[:\s]*#%d`)
-	tasklistRefRegex = regexp.MustCompile(`-\s*\[[ x]\]\s*#%d`)
-	issueRefRegex    = regexp.MustCompile(`\b#%d\b`)
+	hoursRegex          = regexp.MustCompile(`(?i)hours?:\s*([\d.]+)h?`)
+	dailyHoursRegex     = regexp.MustCompile(`(?i)hours?:\s*(\d{4}-\d{2}-\d{2}):\s*([\d.]+)h?`)
+	lastSyncedRegex     = regexp.MustCompile(`(?i)last\s+synced:\s*([\d.]+)h`)
+	wrikeTaskRegex      = regexp.MustCompile(`(?i)wrike\s*task\s*id?:\s*([A-Za-z0-9_-]+)`)
+	subIssuesRegex      = regexp.MustCompile(`#(\d+)`)
+	parentRefRegex      = regexp.MustCompile(`(?i)(parent|related to|part of)[:\s]*#%d`)
+	tasklistRefRegex    = regexp.MustCompile(`-\s*\[[ x]\]\s*#%d`)
+	issueRefRegex       = regexp.MustCompile(`\b#%d\b`)
 )
 
 // GetIssueMetadata retrieves metadata for a GitHub issue.
@@ -72,10 +76,32 @@ func (c *Client) GetIssueMetadata(issueNumber string) (*IssueMetadata, error) {
 		metadata.WrikeTaskID = matches[1]
 	}
 
-	// Parse hours from body
-	if matches := hoursRegex.FindStringSubmatch(issue.Body); len(matches) >= 2 {
+	// Parse daily hours format first (e.g., "Hours: 2024-02-15: 4h, 2024-02-16: 3h")
+	metadata.DailyHours = make(map[string]float64)
+	dailyMatches := dailyHoursRegex.FindAllStringSubmatch(issue.Body, -1)
+	for _, match := range dailyMatches {
+		if len(match) >= 3 {
+			date := match[1]
+			if hours, err := strconv.ParseFloat(match[2], 64); err == nil {
+				metadata.DailyHours[date] = hours
+				metadata.Hours += hours // Also add to total
+			}
+		}
+	}
+
+	// Parse simple hours format if no daily breakdown found (e.g., "Hours: 4.5h")
+	if len(metadata.DailyHours) == 0 {
+		if matches := hoursRegex.FindStringSubmatch(issue.Body); len(matches) >= 2 {
+			if hours, err := strconv.ParseFloat(matches[1], 64); err == nil {
+				metadata.Hours = hours
+			}
+		}
+	}
+
+	// Parse last synced hours for incremental tracking
+	if matches := lastSyncedRegex.FindStringSubmatch(issue.Body); len(matches) >= 2 {
 		if hours, err := strconv.ParseFloat(matches[1], 64); err == nil {
-			metadata.Hours = hours
+			metadata.LastSyncedHours = hours
 		}
 	}
 
@@ -125,6 +151,38 @@ func (c *Client) UpdateIssueBody(issueNumber string, newBody string) error {
 	}
 
 	return nil
+}
+
+// UpdateLastSyncedHours updates the "Last Synced" marker in the issue body.
+func (c *Client) UpdateLastSyncedHours(issueNumber string, totalHours float64) error {
+	metadata, err := c.GetIssueMetadata(issueNumber)
+	if err != nil {
+		return err
+	}
+
+	body := metadata.Body
+	syncLine := fmt.Sprintf("Last Synced: %.2fh", totalHours)
+
+	// If Last Synced already exists, update it
+	if lastSyncedRegex.MatchString(body) {
+		body = lastSyncedRegex.ReplaceAllString(body, syncLine)
+	} else {
+		// Add it after the Wrike Task ID line or at the beginning
+		if metadata.WrikeTaskID != "" {
+			// Add after Wrike Task ID
+			wrikeTaskLine := fmt.Sprintf("Wrike Task ID: %s", metadata.WrikeTaskID)
+			body = regexp.MustCompile(regexp.QuoteMeta(wrikeTaskLine)).ReplaceAllString(body, wrikeTaskLine+"\n"+syncLine)
+		} else {
+			// Add at the beginning
+			if body != "" {
+				body = syncLine + "\n\n" + body
+			} else {
+				body = syncLine
+			}
+		}
+	}
+
+	return c.UpdateIssueBody(issueNumber, body)
 }
 
 // AddOrUpdateWrikeTaskID adds or updates the Wrike Task ID in the issue body.
