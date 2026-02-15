@@ -8,20 +8,26 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 
 **Simple workflow:**
 1. Add `wrike-parent` label to issue → Bot creates Wrike task
-2. Log hours via **comment** (one simple line!):
+2. Log hours with simple bot commands:
    ```
-   Hours: 16: 3h, 17: 4.5h, 18: 2h
+   @wrikemeup log 3h, mon:2h, yesterday:5h
    ```
-3. Bot automatically syncs and shows you a summary table!
+3. Bot syncs to Wrike and shows you the result!
 4. Done! ✅
 
-**Smart date formats:**
-- `16: 3h` - Day only (current month/year)
-- `03-16: 4h` - Month-day (current year)
-- `2024-02-16: 5h` - Full date when needed
+**Natural date formats:**
+- `3h` - Today
+- `mon:2h` - Last Monday
+- `yesterday:5h` - Yesterday
+- `15:3h` - Day 15 of current month
+- `2024-02-16:4h` - Specific date
 
-**Edit/Delete:** Just edit your comment or use `0h` to delete!
+**Commands:**
+- `@wrikemeup log 3h, mon:2h` - Log hours
+- `@wrikemeup delete mon` - Delete hours
+- `@wrikemeup show` - Show current hours
 
+**📖 [Bot Commands Reference →](BOT_COMMANDS.md)**
 **📖 [Complete Setup Guide →](SETUP_GUIDE.md)**
 
 ---
@@ -30,102 +36,67 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 
 WrikeMeUp is a GitHub automation bot that seamlessly integrates GitHub issues with Wrike tasks for hour tracking:
 
-- **💬 Comment-Based Logging**: Log hours via comments (full traceability!)
-- **📊 Auto Summary Tables**: Bot responds with current state of all hours
-- **✨ Simple Format**: Comma-separated entries (easy to type, not error-prone!)
-- **✏️ Edit Support**: Update hours anytime
-- **🗑️ Delete Support**: Set to `0h` or edit comment to remove entries
-- **🔄 Incremental Logging**: Only add new days, don't repeat everything
-- **⚠️ Format Validation**: Bot tells you if format is wrong
+- **🤖 Bot Commands**: Natural language commands with @wrikemeup
+- **📅 Relative Dates**: Log with `mon:3h`, `yesterday:5h`, or `3h` (today)
+- **💬 Simple & Intuitive**: Speak like you think - no complex formats
+- **📊 Auto Summary Tables**: Bot always shows current state
+- **✏️ Easy Updates**: Latest value wins - no duplicates
+- **🗑️ Simple Deletion**: `@wrikemeup delete mon` removes hours
+- **🔍 Check Status**: `@wrikemeup show` displays all logged hours
 - **🛡️ Wrike-Safe**: Handles manual Wrike edits gracefully
-- **🗓️ Smart Date Format**: Only specify what's needed (day/month-day/full date)
-- **📝 Multiple Entries**: Log multiple days in one line
-- **🔗 Auto-link Issues to Wrike Tasks**: Automatically create and link Wrike tasks from GitHub issues
-- **🔄 Automatic Sync**: Hours sync when you add/edit comments or issues
-- **📊 Subtask Aggregation**: Automatically sum hours from child issues into parent Wrike tasks
-- **🤖 Multiple Workflows**: Support for both label-based and GitHub Projects custom fields
+- **🗓️ Flexible Dates**: Day of week, relative days, or absolute dates
+- **⚡ Fast**: Log whole week in one command
+- **🔗 Auto-link**: Automatically create and link Wrike tasks
+- **🔄 Auto Sync**: Hours sync when you use bot commands
+- **📊 Subtask Aggregation**: Automatically sum hours from child issues
+- **🤖 Multiple Workflows**: Support for labels and GitHub Projects custom fields
 - **☁️ Serverless**: Runs on GitHub Actions - no infrastructure needed!
 
 ## How It Works
 
-**Comment-Based Hour Logging (Recommended)**
+**Bot Command Hour Logging (Recommended)**
 ```markdown
 # Add a comment to your issue:
 
-Hours: 16: 3h, 17: 4.5h, 18: 2h
+@wrikemeup log 3h, mon:2h, yesterday:5h
 
 # Bot automatically logs and responds:
 ```
 
 | Date | Hours | Status |
 |------|-------|--------|
+| 2024-02-13 | 2.00h | ✓ |
+| 2024-02-15 | 5.00h | ✓ |
 | 2024-02-16 | 3.00h | ✓ |
-| 2024-02-17 | 4.50h | ✓ |
-| 2024-02-18 | 2.00h | ✓ |
 
-**Total: 9.50h**
+**Total: 10.00h**
 
-**Incremental Logging (Just add new days!):**
+**More Examples:**
 ```markdown
-# First comment:
-Hours: 16: 3h
+# Log today:
+@wrikemeup log 3h
 
-# Later, second comment (add more days):
-Hours: 17: 4.5h, 18: 2h
+# Log whole week:
+@wrikemeup log mon:8h, tue:7h, wed:8h, thu:8h, fri:6h
 
-# Bot shows CURRENT STATE (all days):
+# Delete Monday:
+@wrikemeup delete mon
+
+# Check status:
+@wrikemeup show
 ```
 
-| Date | Hours | Status |
-|------|-------|--------|
-| 2024-02-16 | 3.00h | ✓ |
-| 2024-02-17 | 4.50h | Added |
-| 2024-02-18 | 2.00h | Added |
-
-**Total: 9.50h**
-
-**Editing Hours:**
-```markdown
-# Just add another comment with updated hours:
-Hours: 16: 5h
-
-# Bot updates day 16 and shows current state:
+**Natural Date Formats**
 ```
-
-| Date | Hours | Status |
-|------|-------|--------|
-| 2024-02-16 | 5.00h | Updated: 3.00h → 5.00h |
-| 2024-02-17 | 4.50h | ✓ |
-| 2024-02-18 | 2.00h | ✓ |
-
-**Total: 11.50h**
-
-**Deleting Hours (use 0h):**
-```markdown
-# Set hours to 0h to delete:
-Hours: 17: 0h
-
-# Bot removes day 17:
-```
-
-| Date | Hours | Status |
-|------|-------|--------|
-| 2024-02-16 | 5.00h | ✓ |
-| 2024-02-18 | 2.00h | ✓ |
-
-**Total: 7.00h**
-_(Day 17 deleted)_
-
-**Smart Date Formats**
-```
-Hours: 16: 3h, 03-16: 4h, 2023-12-25: 5h
+@wrikemeup log 3h, mon:2h, yesterday:5h, 15:4h
 
 # Formats:
-# 16: 3h           → Day only (current month/year)
-# 03-16: 4h        → Month-day (current year)
-# 2023-12-25: 5h   → Full date
+# 3h           → Today
+# mon:2h       → Last Monday
+# yesterday:5h → Yesterday
+# 15:4h        → Day 15 of current month
 
-Multiple entries, one line! 🎉
+Multiple entries, one command! 🎉
 ```
 
 **Child Aggregation**
