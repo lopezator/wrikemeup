@@ -149,3 +149,19 @@ func (c *Client) PostValidationErrors(issueNumber string, errors []string) error
 
 	return c.PostCommentWithBody(issueNumber, message.String())
 }
+
+// GetAllLoggedHours retrieves all logged hours from bot commands for an issue.
+// This aggregates hours from all @wrikemeup log commands in the issue's comments.
+func (c *Client) GetAllLoggedHours(issueNumber string) (map[string]float64, error) {
+	metadata, err := c.GetIssueMetadata(issueNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get issue metadata: %w", err)
+	}
+
+	// Return the daily hours from metadata (which includes all parsed comments)
+	if metadata.DailyHours != nil && len(metadata.DailyHours) > 0 {
+		return metadata.DailyHours, nil
+	}
+
+	return make(map[string]float64), nil
+}
