@@ -32,6 +32,7 @@ func Retrieve() (*wrikemeup.Config, error) {
 	gitHubIssueNumber := os.Getenv("GITHUB_ISSUE_NUMBER")
 	gitHubCommentBody := os.Getenv("GITHUB_COMMENT_BODY")
 	gitHubActionType := os.Getenv("GITHUB_ACTION_TYPE")
+	gitHubIssueAction := os.Getenv("GITHUB_ISSUE_ACTION")
 	wrikeFolderID := os.Getenv("WRIKE_FOLDER_ID")
 	gitHubProjectID := os.Getenv("GITHUB_PROJECT_ID")
 	gitHubProjectItemID := os.Getenv("GITHUB_PROJECT_ITEM_ID")
@@ -60,6 +61,7 @@ func Retrieve() (*wrikemeup.Config, error) {
 		GitHubRepo:          gitHubRepo,
 		GitHubIssueNumber:   gitHubIssueNumber,
 		GitHubActionType:    gitHubActionType,
+		GitHubIssueAction:   gitHubIssueAction,
 		WrikeFolderID:       wrikeFolderID,
 		GitHubProjectID:     gitHubProjectID,
 		GitHubProjectItemID: gitHubProjectItemID,

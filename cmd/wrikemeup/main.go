@@ -128,6 +128,7 @@ func handleAutoLink(wrikeClient *wrike.Client, githubClient *github.Client, issu
 }
 
 // handleSyncHours syncs hours from the GitHub issue to the Wrike task.
+// Per spec: Also handles close behavior (mark Wrike task complete).
 func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, config *wrikemeup.Config, user *userpkg.User) {
 	issueNum, err := strconv.Atoi(config.GitHubIssueNumber)
 	if err != nil {
@@ -138,6 +139,12 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 	metadata, err := githubClient.GetIssueMetadata(config.GitHubIssueNumber)
 	if err != nil {
 		log.Fatalf("wrikemeup: failed to get issue metadata: %v", err)
+	}
+
+	// Handle close behavior per specification
+	if config.GitHubIssueAction == "closed" {
+		handleCloseIssue(wrikeClient, githubClient, metadata, config)
+		return
 	}
 
 	// Check for validation errors and post them
@@ -671,4 +678,51 @@ func handleSpecLogCommand(wrikeClient *wrike.Client, githubClient *github.Client
 	
 	log.Printf("Successfully logged hours to Wrike task %s", wrikeTaskID)
 	fmt.Printf("Logged %d date(s) to Wrike task %s\n", len(targetDates), wrikeTaskID)
+}
+
+// handleCloseIssue handles the close behavior per specification.
+// Logic:
+// 1. Check Wrike ID field - No Wrike ID → Exit
+// 2. Check issue type:
+//    - Child issue → Exit (parent owns the Wrike task)
+//    - Parent/Standalone → Mark Wrike task complete
+func handleCloseIssue(wrikeClient *wrike.Client, githubClient *github.Client, metadata *github.IssueMetadata, config *wrikemeup.Config) {
+log.Printf("Handling close event for issue #%s", config.GitHubIssueNumber)
+
+// Check if issue has Wrike ID
+if metadata.WrikeTaskID == "" {
+log.Printf("Issue #%s has no Wrike ID, no action needed on close", config.GitHubIssueNumber)
+return
+}
+
+// Determine issue type
+rel, err := githubClient.GetIssueRelationship(config.GitHubIssueNumber)
+if err != nil {
+log.Printf("Warning: failed to determine issue type: %v", err)
+// Continue anyway - if it has a Wrike ID, try to complete it
+}
+
+// If this is a child issue, exit (parent owns the Wrike task)
+if rel != nil && rel.Type == github.IssueTypeChild {
+log.Printf("Issue #%s is a child issue, not marking Wrike task complete (parent #%d owns it)", 
+config.GitHubIssueNumber, rel.ParentNum)
+return
+}
+
+// This is a parent or standalone issue - mark Wrike task complete
+log.Printf("Marking Wrike task %s as complete for issue #%s", metadata.WrikeTaskID, config.GitHubIssueNumber)
+
+if err := wrikeClient.CompleteTask(metadata.WrikeTaskID); err != nil {
+log.Printf("Warning: failed to mark Wrike task as complete: %v", err)
+return
+}
+
+// Post success comment
+comment := fmt.Sprintf("✅ Marked Wrike task %s as complete.\n\nAll logged hours have been preserved.", metadata.WrikeTaskID)
+if err := githubClient.PostCommentWithBody(config.GitHubIssueNumber, comment); err != nil {
+log.Printf("Warning: failed to post comment: %v", err)
+}
+
+log.Printf("Successfully marked Wrike task %s as complete", metadata.WrikeTaskID)
+fmt.Printf("Issue #%s closed - Wrike task %s marked complete\n", config.GitHubIssueNumber, metadata.WrikeTaskID)
 }

@@ -9,6 +9,7 @@ type Config struct {
 	GitHubRepo          string
 	GitHubIssueNumber   string
 	GitHubActionType    string // "auto-link", "sync-hours", "sync-project", or "bot-command"
+	GitHubIssueAction   string // Optional: "opened", "edited", "closed", etc.
 	WrikeFolderID       string // Optional, for auto-creating tasks
 	GitHubProjectID     string // Optional, for project-based workflows
 	GitHubProjectItemID string // Optional, for project item updates

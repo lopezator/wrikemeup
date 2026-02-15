@@ -318,3 +318,40 @@ func (c *Client) SyncDailyHoursWithTracking(wrikeTaskID string, newDailyHours ma
 
 	return changes, nil
 }
+
+// CompleteTask marks a Wrike task as complete.
+// Per specification: Set task status to complete/closed, keep task (don't delete), preserve all logged hours.
+func (c *Client) CompleteTask(taskID string) error {
+	url := fmt.Sprintf("https://app-eu.wrike.com/api/v4/tasks/%s", taskID)
+	
+	// Wrike API: Set status to "Completed"
+	payload := map[string]interface{}{
+		"status": "Completed",
+	}
+	
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("wrike: failed to marshal payload: %w", err)
+	}
+	
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("wrike: failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+	
+	resp, err := c.Do(req)
+	if err != nil {
+		return fmt.Errorf("wrike: API call failed: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("wrike: API returned error: %s (status: %d)", string(body), resp.StatusCode)
+	}
+	
+	log.Printf("Successfully marked Wrike task %s as complete", taskID)
+	return nil
+}

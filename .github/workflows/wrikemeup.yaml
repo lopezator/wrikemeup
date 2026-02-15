@@ -94,6 +94,7 @@ jobs:
       GITHUB_REPO: ${{ github.event.repository.full_name }}
       GITHUB_USERNAME: ${{ github.event.sender.login }}
       GITHUB_ACTION_TYPE: "sync-hours"
+      GITHUB_ISSUE_ACTION: ${{ github.event.action }}
 
     steps:
       - name: Checkout repo
