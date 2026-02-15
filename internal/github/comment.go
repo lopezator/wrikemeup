@@ -7,9 +7,6 @@ import (
 	"strings"
 )
 
-// Now returns the current time. Extracted as a variable for testing.
-var Now = time.Now
-
 // Command represents a parsed command from a GitHub comment.
 type Command struct {
 	Action      string       // "log", "delete", "show"
