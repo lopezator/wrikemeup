@@ -21,9 +21,14 @@ type IssueMetadata struct {
 	SubIssues   []int
 }
 
-var hoursRegex = regexp.MustCompile(`(?i)hours?:\s*([\d.]+)h?`)
-var wrikeTaskRegex = regexp.MustCompile(`(?i)wrike\s*task\s*id?:\s*([A-Za-z0-9_-]+)`)
-var subIssuesRegex = regexp.MustCompile(`#(\d+)`)
+var (
+	hoursRegex       = regexp.MustCompile(`(?i)hours?:\s*([\d.]+)h?`)
+	wrikeTaskRegex   = regexp.MustCompile(`(?i)wrike\s*task\s*id?:\s*([A-Za-z0-9_-]+)`)
+	subIssuesRegex   = regexp.MustCompile(`#(\d+)`)
+	parentRefRegex   = regexp.MustCompile(`(?i)(parent|related to|part of)[:\s]*#%d`)
+	tasklistRefRegex = regexp.MustCompile(`-\s*\[[ x]\]\s*#%d`)
+	issueRefRegex    = regexp.MustCompile(`\b#%d\b`)
+)
 
 // GetIssueMetadata retrieves metadata for a GitHub issue.
 func (c *Client) GetIssueMetadata(issueNumber string) (*IssueMetadata, error) {
@@ -189,32 +194,24 @@ func (c *Client) GetChildIssues(issueNumber int) ([]int, error) {
 	}
 
 	var childIssues []int
-	parentRef := fmt.Sprintf("#%d", issueNumber)
-
+	
+	// Pre-compile patterns for this search
+	parentPattern := regexp.MustCompile(fmt.Sprintf(`(?i)(parent|related to|part of)[:\s]*#%d`, issueNumber))
+	tasklistPattern := regexp.MustCompile(fmt.Sprintf(`-\s*\[[ x]\]\s*#%d`, issueNumber))
+	
 	for _, item := range searchResult.Items {
 		// Skip the parent issue itself
 		if item.Number == issueNumber {
 			continue
 		}
-
-		// Check if this issue references the parent
-		// Look for patterns like "Parent: #123" or in tasklists
-		if regexp.MustCompile(`(?i)(parent|related to|part of)[:\s]*#`+fmt.Sprintf("%d", issueNumber)).MatchString(item.Body) ||
-			regexp.MustCompile(`-\s*\[[ x]\]\s*#`+fmt.Sprintf("%d", issueNumber)).MatchString(item.Body) {
-			childIssues = append(childIssues, item.Number)
-		} else if containsIssueReference(item.Body, parentRef) {
-			// Simple check if it mentions the parent issue
+		
+		// Check if this issue references the parent using pre-compiled patterns
+		if parentPattern.MatchString(item.Body) || tasklistPattern.MatchString(item.Body) {
 			childIssues = append(childIssues, item.Number)
 		}
 	}
 
 	return childIssues, nil
-}
-
-// containsIssueReference checks if a text contains a reference to an issue.
-func containsIssueReference(text, issueRef string) bool {
-	// Look for the issue reference in the text
-	return regexp.MustCompile(`\b` + regexp.QuoteMeta(issueRef) + `\b`).MatchString(text)
 }
 
 // splitRepo splits the repo string into owner and name.

@@ -187,10 +187,15 @@ func (c *Client) parseProjectField(field map[string]interface{}, item *ProjectIt
 		// Could be checkbox (name) or select field
 		// Accept various boolean-like values (case-insensitive)
 		if name, ok := field["name"].(string); ok {
-			nameLower := strings.ToLower(name)
-			item.IsWrikeParent = (nameLower == "yes" || nameLower == "true" || nameLower == "enabled" || nameLower == "checked")
+			item.IsWrikeParent = parseBooleanValue(name)
 		}
 	}
+}
+
+// parseBooleanValue converts common boolean-like strings to bool (case-insensitive).
+func parseBooleanValue(value string) bool {
+	valueLower := strings.ToLower(strings.TrimSpace(value))
+	return valueLower == "yes" || valueLower == "true" || valueLower == "enabled" || valueLower == "checked"
 }
 
 // UpdateProjectField updates a custom field value in GitHub Projects V2.

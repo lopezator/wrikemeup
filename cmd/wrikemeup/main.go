@@ -162,9 +162,9 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 	}
 
 	// Log hours to Wrike
-	comment := fmt.Sprintf("Auto-synced from GitHub issue #%s", config.GitHubIssueNumber)
-	if len(childIssues) > 0 {
-		comment = fmt.Sprintf("Auto-synced from GitHub issue #%s (aggregated %d child issues)", config.GitHubIssueNumber, len(childIssues))
+	comment := fmt.Sprintf("Auto-synced from GitHub issue #%s (aggregated %d child issues)", config.GitHubIssueNumber, len(childIssues))
+	if len(childIssues) == 0 {
+		comment = fmt.Sprintf("Auto-synced from GitHub issue #%s", config.GitHubIssueNumber)
 	}
 
 	if err := wrikeClient.LogHours(metadata.WrikeTaskID, totalHours, comment); err != nil {

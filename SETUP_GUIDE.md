@@ -16,7 +16,7 @@
 
 ## Prerequisites
 
-- [ ] **GitHub Premium** (optional, for Projects V2 custom fields)
+- [ ] **GitHub Account** (Projects V2 is free for everyone!)
 - [ ] **Wrike Account** with API access
 - [ ] **GitHub Repository** with Issues enabled
 - [ ] Admin access to repository settings
@@ -100,7 +100,7 @@ Use the folder ID from Step 1.3
 1. Create secret named `WRIKE_FOLDER_ID`
 2. Value: `IEABC123DEFG` (your folder ID)
 
-#### Create Secret: `GITHUB_PROJECT_NUMBER` (Optional - GitHub Premium only)
+#### Create Secret: `GITHUB_PROJECT_NUMBER` (Optional)
 Only needed if using GitHub Projects V2.
 
 1. Go to your Projects tab
@@ -208,9 +208,9 @@ Use `@wrikemeup` commands in issue comments:
 @wrikemeup log IEABC123
 ```
 
-### Method 3: GitHub Projects V2 (GitHub Premium)
+### Method 3: GitHub Projects V2
 
-If you have GitHub Premium, use custom fields:
+If you want to use Projects V2 (free for everyone!), use custom fields:
 
 1. **Create Project** with custom fields:
    - `Wrike Parent` (Single Select: Yes/No)
