@@ -6,17 +6,22 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 
 **No server needed!** Runs automatically on GitHub Actions.
 
-**Option 1: Using GitHub Projects Custom Field (Recommended)**
-1. Set "Wrike Parent" custom field to "Yes" → Bot creates Wrike task
-2. Log hours in child issues: `Hours: 4.5h` (or `Hours: 2024-02-15: 4h, 2024-02-16: 3h`)
+**Simple workflow:**
+1. Add `wrike-parent` label to issue → Bot creates Wrike task
+2. Log hours via **comments** (preserves history!):
+   ```markdown
+   Hours:
+   - 16 = 3h
+   - 17 = 4.5h
+   - 18 = 2h
+   ```
 3. Edit issue → Hours **automatically** sync to Wrike!
 4. Done! ✅
 
-**Option 2: Using Label**
-1. Add `wrike-parent` label to issue → Bot creates Wrike task
-2. Log hours in child issues: `Hours: 4.5h`
-3. Edit issue → Hours **automatically** sync to Wrike!
-4. Done! ✅
+**Smart date formats:**
+- `16 = 3h` - Day only (current month/year)
+- `03-16 = 4h` - Month-day (current year)
+- `2023-12-25 = 5h` - Full date when needed
 
 **📖 [Complete Setup Guide →](SETUP_GUIDE.md)**
 
@@ -26,49 +31,58 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 
 WrikeMeUp is a GitHub automation bot that seamlessly integrates GitHub issues with Wrike tasks for hour tracking:
 
+- **💬 Comment-Based Logging**: Log hours via comments (full traceability!)
+- **🗓️ Smart Date Format**: Only specify what's needed (day/month-day/full date)
+- **📊 Multiple Entries**: Log multiple days in one comment
 - **🔗 Auto-link Issues to Wrike Tasks**: Automatically create and link Wrike tasks from GitHub issues
-- **⏱️ Hour Tracking**: Track hours in issue body or GitHub Projects custom fields
-- **📅 Daily Hour Breakdown**: Specify hours per date (e.g., `Hours: 2024-02-15: 4h, 2024-02-16: 3h`)
-- **🔄 Incremental Sync**: Only logs new hours since last sync - no duplicates!
+- **⏱️ Hour Tracking**: Track hours in comments or issue body
+- **🔄 Automatic Sync**: Hours sync when you add/edit comments or issues
 - **📊 Subtask Aggregation**: Automatically sum hours from child issues into parent Wrike tasks
 - **🤖 Multiple Workflows**: Support for both label-based and GitHub Projects custom fields
-- **⚡ Automatic Sync**: Hours sync automatically when you edit issues - no manual commands needed!
 - **☁️ Serverless**: Runs on GitHub Actions - no infrastructure needed!
 
 ## How It Works
 
-**Automatic Hour Sync - No Commands Needed!**
+**Comment-Based Hour Logging (Recommended)**
+```markdown
+# Add a comment to your issue:
+
+Hours:
+- 16 = 3h
+- 17 = 4.5h
+- 18 = 2h
+
+Bot automatically logs:
+- 3h on Feb 16 (current month/year)
+- 4.5h on Feb 17
+- 2h on Feb 18
+✅ Full traceability in comments!
 ```
-Day 1: Add Hours: 4h → Edit issue → Bot logs 4h to Wrike
-Day 2: Update to Hours: 8h → Edit issue → Bot logs 4h more (incremental!)
-Day 3: Update to Hours: 12h → Edit issue → Bot logs 4h more
 
-Result: Total 12h in Wrike ✅ No duplicates!
-```
+**Smart Date Formats**
+```markdown
+Hours:
+- 16 = 3h           # Day only → 2024-02-16
+- 03-16 = 4h        # Month-day → 2024-03-16
+- 2023-12-25 = 5h   # Full date → 2023-12-25
 
-**Daily Breakdown Support**
-```
-Hours: 2024-02-15: 4h, 2024-02-16: 3h, 2024-02-17: 5h
-
-Edit issue → Bot logs:
-- 4h on Feb 15
-- 3h on Feb 16  
-- 5h on Feb 17
-
-Perfect for tracking which hours were on which day! ✅
+Multiple entries in one comment! 🎉
 ```
 
 **Child Aggregation**
-```
-├── Destinations Feature (#100) [wrike-parent]
-    Wrike Task ID: IEABC123
-    Last Synced: 0h
-    │
-    ├── Task A (#101) - Hours: 1h
-    ├── Task B (#102) - Hours: 3.5h
-    └── Task C (#103) - Hours: 5h
+```markdown
+Parent Issue (#100) [wrike-parent]
+├── Wrike Task ID: IEABC123
+│
+├── Child #101 comment: "Hours:\n- 16 = 2h\n- 17 = 1h"
+├── Child #102 comment: "Hours:\n- 16 = 3h"
+└── Child #103 comment: "Hours:\n- 18 = 4h"
 
-Edit parent → Bot aggregates 9.5h to Wrike ✅
+Edit parent → Bot aggregates:
+- Feb 16: 5h (2h + 3h)
+- Feb 17: 1h
+- Feb 18: 4h
+Total: 10h to Wrike ✅
 ```
 
 ## Quick Example
@@ -127,61 +141,40 @@ Hours: 1h
 
 ## Usage
 
-### Simple Workflow (Recommended)
+### Comment-Based Logging (Recommended)
 
-**1. Create parent issue with label `wrike-parent`**
+**Add a comment to log hours:**
 ```markdown
-# Destinations Feature
-
-Implement new destinations page
+Hours:
+- 16 = 3h
+- 17 = 4.5h
+- 18 = 2h
 ```
 
-**2. Bot auto-creates Wrike task**
-```markdown
-# Destinations Feature
+**Smart date formats:**
+- **Day only**: `16 = 3h` → Uses current month/year
+- **Month-day**: `03-16 = 4h` → Uses current year
+- **Full date**: `2023-12-25 = 5h` → Specific date
 
-Wrike Task ID: IEABC123 ← Added by bot
-Last Synced: 0h ← Tracks synced hours
+**Benefits:**
+- ✅ **Full traceability** - All hour logs visible in comments
+- ✅ **No editing** - Just add new comments
+- ✅ **Multiple entries** - Log many days at once
+- ✅ **Smart dates** - Only specify what's needed
 
-Implement new destinations page
-```
+### Label-Based Workflow
 
-**3. Add hours to issue (choose format):**
+1. Create issue + add `wrike-parent` label
+2. Bot creates Wrike task and updates issue body
+3. Log hours via comments (see format above)
+4. Edit issue or add comment → Auto-sync to Wrike ✅
 
-**Option A: Simple total hours**
-```markdown
-Hours: 12h
-```
+### GitHub Projects Custom Field
 
-**Option B: Daily breakdown (specific dates)**
-```markdown
-Hours: 2024-02-16: 3h, 2024-02-18: 5h
-```
-
-This logs:
-- 3 hours to Feb 16
-- 5 hours to Feb 18
-
-**4. Edit and save** → Bot automatically syncs to Wrike! ✅
-
-### GitHub Projects Custom Field Workflow
-
-**Q: Can I use Projects custom fields for daily hours?**
-**A:** Projects V2 fields (Number/Text) can only store single values, so daily breakdown must go in the **issue body**.
-
-**How it works:**
-1. Create custom fields:
-   - "Wrike Parent" (Single Select: Yes/No) 
-   - "Wrike Task ID" (Text - auto-filled)
-   
-2. Add issue to project, set "Wrike Parent" = "Yes"
-
-3. **Add hours in issue body** (not custom fields):
-   ```markdown
-   Hours: 2024-02-16: 3h, 2024-02-18: 5h
-   ```
-
-4. Edit issue → Bot syncs to correct dates! ✅
+1. Create custom field "Wrike Parent" (Single Select: Yes/No)
+2. Set to "Yes" → Bot creates Wrike task
+3. Log hours via comments on issue
+4. Auto-syncs to Wrike!
 
 ### Bot Commands (Optional)
 
@@ -196,16 +189,13 @@ This logs:
 
 ## Examples
 
-### Example 1: Weekly Sprint with Daily Breakdown
+### Example 1: Weekly Sprint with Smart Dates
 
 **Parent Issue (#100):**
 ```markdown
 # Sprint 23 - Authentication Feature
 
 Wrike Task ID: IEABC123
-Last Synced: 0h
-
-Hours: 2024-02-16: 3h, 2024-02-18: 5h, 2024-02-19: 4h
 
 ## Subtasks
 - #101 Login API
@@ -213,17 +203,31 @@ Hours: 2024-02-16: 3h, 2024-02-18: 5h, 2024-02-19: 4h
 - #103 Testing
 ```
 
-**Result in Wrike:**
-- Feb 16: 3h logged
-- Feb 18: 5h logged
-- Feb 19: 4h logged
-
-**Update hours later:**
+**Add comment:**
 ```markdown
-Hours: 2024-02-16: 3h, 2024-02-18: 5h, 2024-02-19: 4h, 2024-02-20: 2h
+Hours:
+- 16 = 3h
+- 18 = 5h
+- 19 = 4h
 ```
 
-Edit & save → Bot logs 2h to Feb 20 (incremental!) ✅
+**Result in Wrike:**
+- Feb 16, 2024: 3h
+- Feb 18, 2024: 5h
+- Feb 19, 2024: 4h
+
+**Add another comment later:**
+```markdown
+Hours:
+- 20 = 2h
+- 03-01 = 3h  (March 1st)
+```
+
+**New entries logged:**
+- Feb 20, 2024: 2h
+- Mar 1, 2024: 3h
+
+✅ Full history preserved in comments!
 
 ### Example 2: Child Issues Aggregation
 
@@ -232,40 +236,40 @@ Edit & save → Bot logs 2h to Feb 20 (incremental!) ✅
 # Payment Integration
 
 Wrike Task ID: IEWXYZ789
-Last Synced: 0h
 ```
 
-**Child Issues:**
-- #201: `Hours: 2024-02-16: 2h`
-- #202: `Hours: 2024-02-17: 3h`
-- #203: `Hours: 2024-02-18: 1.5h`
+**Child #201 - Comment:**
+```markdown
+Hours:
+- 16 = 2h
+- 17 = 1.5h
+```
 
-**Edit parent issue** → Bot aggregates:
+**Child #202 - Comment:**
+```markdown
+Hours:
+- 17 = 3h
+- 18 = 2h
+```
+
+**Edit parent issue** → Bot aggregates from all children:
 - Feb 16: 2h
-- Feb 17: 3h
-- Feb 18: 1.5h
-- Total: 6.5h to Wrike ✅
+- Feb 17: 4.5h (1.5h + 3h)
+- Feb 18: 2h
+- **Total: 8.5h to Wrike** ✅
 
-### Example 3: Simple Total Hours
+### Example 3: Cross-Month Logging
 
-**Issue (#300):**
+**Comment:**
 ```markdown
-# Bug Fix - Database Migration
-
-Wrike Task ID: IEQUICK456
-Last Synced: 0h
-
-Hours: 8h
+Hours:
+- 28 = 4h        # Feb 28
+- 03-01 = 3h     # March 1 (different month)
+- 03-02 = 2h     # March 2
+- 2023-12-25 = 1h  # Last year's Christmas (full date)
 ```
 
-Edit & save → Bot logs 8h to today's date ✅
-
-**Later update to 12h:**
-```markdown
-Hours: 12h
-```
-
-Edit & save → Bot logs 4h more (incremental!) ✅
+**All 4 entries logged to correct dates!** ✅
 
 ---
 

@@ -145,43 +145,46 @@ The workflow file `.github/workflows/wrikemeup.yaml` is already configured! It w
    - Bot updates issue body with: `Wrike Task ID: IEABC123`
    - ✅ No copy-paste needed!
 
-3. **Create child issues** (sub-tasks)
+3. **Create child issues and log hours via comments**
    
-   **Simple format (hours logged to today):**
+   **Create issue:**
    ```markdown
    # Task: Implement Login Form
    
    Parent: #123
-   Hours: 4h
    
    Create login form with email/password fields.
    ```
    
-   **Daily breakdown format (hours on specific dates):**
+   **Add comment to log hours:**
    ```markdown
-   # Task: Implement Login Form
-   
-   Parent: #123
-   Hours: 2024-02-16: 2h, 2024-02-18: 2h
-   
-   Worked on login form across multiple days.
+   Hours:
+   - 16 = 2h
+   - 17 = 1.5h
+   - 18 = 3h
    ```
+   
+   **Smart date formats:**
+   - `16 = 2h` - Day only (uses current month/year → 2024-02-16)
+   - `03-16 = 2h` - Month-day (uses current year → 2024-03-16)
+   - `2023-12-25 = 2h` - Full date (specific year/month/day)
 
 4. **Work on tasks**
-   - Developers log hours in child issues
-   - Update hours anytime by editing issue body
-   - **No manual sync needed** - just edit and save!
+   - Developers add comments with hours
+   - **Full traceability** - all hours visible in comment history
+   - **No editing needed** - just add new comments!
+   - **Multiple entries** - log many days in one comment
 
 5. **Automatic sync to Wrike:**
-   - Edit any issue → Bot automatically syncs!
-   - Bot uses **incremental logging** (only new hours)
+   - Add/edit comments → Bot automatically syncs!
    - Bot automatically:
      - Finds ALL child issues (that reference parent)
-     - Aggregates hours from all children
+     - Aggregates hours from all children's comments
+     - Logs to correct dates in Wrike
      - Logs to correct dates if using daily format
    - ✅ Done!
 
-**💡 Tip:** Bot tracks "Last Synced" in issue body to avoid duplicates!
+**💡 Tip:** Comments preserve full history - you can see who logged hours and when!
 
 #### Example Hierarchy:
 
