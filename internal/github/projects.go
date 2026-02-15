@@ -13,25 +13,25 @@ import (
 
 // IssueMetadata holds metadata about a GitHub issue.
 type IssueMetadata struct {
-	Number         int
-	Title          string
-	Body           string
-	WrikeTaskID    string
-	Hours          float64
-	DailyHours     map[string]float64 // Date -> Hours mapping
+	Number          int
+	Title           string
+	Body            string
+	WrikeTaskID     string
+	Hours           float64
+	DailyHours      map[string]float64 // Date -> Hours mapping
 	LastSyncedHours float64            // Track last synced amount for incremental logging
-	SubIssues      []int
+	SubIssues       []int
 }
 
 var (
-	hoursRegex          = regexp.MustCompile(`(?i)hours?:\s*([\d.]+)h?`)
-	dailyHoursRegex     = regexp.MustCompile(`(?i)hours?:\s*(\d{4}-\d{2}-\d{2}):\s*([\d.]+)h?`)
-	lastSyncedRegex     = regexp.MustCompile(`(?i)last\s+synced:\s*([\d.]+)h`)
-	wrikeTaskRegex      = regexp.MustCompile(`(?i)wrike\s*task\s*id?:\s*([A-Za-z0-9_-]+)`)
-	subIssuesRegex      = regexp.MustCompile(`#(\d+)`)
-	parentRefRegex      = regexp.MustCompile(`(?i)(parent|related to|part of)[:\s]*#%d`)
-	tasklistRefRegex    = regexp.MustCompile(`-\s*\[[ x]\]\s*#%d`)
-	issueRefRegex       = regexp.MustCompile(`\b#%d\b`)
+	hoursRegex       = regexp.MustCompile(`(?i)hours?:\s*([\d.]+)h?`)
+	dailyHoursRegex  = regexp.MustCompile(`(?i)hours?:\s*(\d{4}-\d{2}-\d{2}):\s*([\d.]+)h?`)
+	lastSyncedRegex  = regexp.MustCompile(`(?i)last\s+synced:\s*([\d.]+)h`)
+	wrikeTaskRegex   = regexp.MustCompile(`(?i)wrike\s*task\s*id?:\s*([A-Za-z0-9_-]+)`)
+	subIssuesRegex   = regexp.MustCompile(`#(\d+)`)
+	parentRefRegex   = regexp.MustCompile(`(?i)(parent|related to|part of)[:\s]*#%d`)
+	tasklistRefRegex = regexp.MustCompile(`-\s*\[[ x]\]\s*#%d`)
+	issueRefRegex    = regexp.MustCompile(`\b#%d\b`)
 )
 
 // GetIssueMetadata retrieves metadata for a GitHub issue.

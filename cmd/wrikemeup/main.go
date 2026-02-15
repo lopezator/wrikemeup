@@ -149,7 +149,7 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 	// Calculate total hours
 	totalHours := metadata.Hours
 	totalDailyHours := make(map[string]float64)
-	
+
 	// Copy daily hours if present
 	for date, hours := range metadata.DailyHours {
 		totalDailyHours[date] = hours
@@ -184,7 +184,7 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 
 	// Calculate incremental hours (delta since last sync)
 	hoursToLog := totalHours - metadata.LastSyncedHours
-	
+
 	// If using daily breakdown, log to specific dates
 	if len(totalDailyHours) > 0 {
 		// For daily hours, we need to track which dates are new
@@ -193,11 +193,11 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 		if len(childIssues) == 0 {
 			comment = fmt.Sprintf("Auto-synced from GitHub issue #%s", config.GitHubIssueNumber)
 		}
-		
+
 		if err := wrikeClient.LogDailyHours(metadata.WrikeTaskID, totalDailyHours, comment); err != nil {
 			log.Fatalf("wrikemeup: failed to log daily hours to Wrike: %v", err)
 		}
-		
+
 		log.Printf("Successfully synced %d days of hours to Wrike", len(totalDailyHours))
 	} else if hoursToLog > 0 {
 		// Incremental logging: only log the difference since last sync
@@ -205,19 +205,19 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 		if len(childIssues) == 0 {
 			comment = fmt.Sprintf("Auto-synced %.2fh from GitHub issue #%s", hoursToLog, config.GitHubIssueNumber)
 		}
-		
+
 		if err := wrikeClient.LogHours(metadata.WrikeTaskID, hoursToLog, comment); err != nil {
 			log.Fatalf("wrikemeup: failed to log hours to Wrike: %v", err)
 		}
-		
+
 		// Update the last synced hours in the issue body
 		if err := githubClient.UpdateLastSyncedHours(config.GitHubIssueNumber, totalHours); err != nil {
 			log.Printf("Warning: failed to update last synced hours: %v", err)
 		}
-		
+
 		log.Printf("Successfully synced %.2f incremental hours to Wrike", hoursToLog)
 	} else {
-		log.Printf("No new hours to sync for issue #%s (current: %.2f, last synced: %.2f)", 
+		log.Printf("No new hours to sync for issue #%s (current: %.2f, last synced: %.2f)",
 			config.GitHubIssueNumber, totalHours, metadata.LastSyncedHours)
 		return
 	}

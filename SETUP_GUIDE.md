@@ -146,30 +146,42 @@ The workflow file `.github/workflows/wrikemeup.yaml` is already configured! It w
    - ✅ No copy-paste needed!
 
 3. **Create child issues** (sub-tasks)
+   
+   **Simple format (hours logged to today):**
    ```markdown
    # Task: Implement Login Form
    
-   Parent: #123 (reference parent issue)
+   Parent: #123
    Hours: 4h
    
    Create login form with email/password fields.
    ```
+   
+   **Daily breakdown format (hours on specific dates):**
+   ```markdown
+   # Task: Implement Login Form
+   
+   Parent: #123
+   Hours: 2024-02-16: 2h, 2024-02-18: 2h
+   
+   Worked on login form across multiple days.
+   ```
 
 4. **Work on tasks**
-   - Developers log hours in child issues: `Hours: 2.5h`
+   - Developers log hours in child issues
    - Update hours anytime by editing issue body
+   - **No manual sync needed** - just edit and save!
 
-5. **Sync hours to Wrike (choose one):**
-   - **Option A:** Comment `@wrikemeup sync` to sync anytime
-   - **Option B:** Edit the parent issue → Auto-syncs
-   - **Option C:** Close parent issue → Auto-syncs
+5. **Automatic sync to Wrike:**
+   - Edit any issue → Bot automatically syncs!
+   - Bot uses **incremental logging** (only new hours)
    - Bot automatically:
      - Finds ALL child issues (that reference parent)
-     - Aggregates hours: 4h + 2.5h + 3h = 9.5h
-     - Logs 9.5h to Wrike task
+     - Aggregates hours from all children
+     - Logs to correct dates if using daily format
    - ✅ Done!
 
-**💡 Tip:** Use `@wrikemeup sync` to log partial work without closing the parent issue!
+**💡 Tip:** Bot tracks "Last Synced" in issue body to avoid duplicates!
 
 #### Example Hierarchy:
 
@@ -347,11 +359,23 @@ If you want to use Projects V2 (free for everyone!), use custom fields:
 
 ### Custom Hour Formats
 
-The bot accepts:
+**Simple total hours:**
 - `Hours: 4h`
 - `Hours: 4.5h`
 - `Hours: 4.25h`
 - Case-insensitive: `hours: 4h`
+
+**Daily breakdown (specific dates):**
+- `Hours: 2024-02-16: 3h, 2024-02-18: 5h`
+- `Hours: 2024-02-15: 2h, 2024-02-16: 3h, 2024-02-17: 1.5h`
+- Multiple dates supported
+- Logs to exact dates in Wrike
+
+**How daily breakdown works:**
+1. Add format to issue body: `Hours: 2024-02-16: 3h, 2024-02-18: 5h`
+2. Edit issue → Bot logs 3h to Feb 16, 5h to Feb 18
+3. Later add more dates: `Hours: 2024-02-16: 3h, 2024-02-18: 5h, 2024-02-20: 2h`
+4. Edit issue → Bot logs 2h to Feb 20 (only new date!)
 
 ### Child Issue Detection
 
@@ -405,7 +429,35 @@ Add more users to the `USERS` JSON:
 **A: Currently no**, but you can edit the Wrike task manually after creation.
 
 ### Q: What happens if I close then reopen an issue?
-**A: It logs hours again**. Be careful not to double-log!
+**A:** Bot tracks "Last Synced" so it won't double-log. Only new hours are logged.
+
+### Q: How do I log hours to specific dates (e.g., 3h on Feb 16, 5h on Feb 18)?
+**A:** Use daily breakdown format in issue body:
+```markdown
+Hours: 2024-02-16: 3h, 2024-02-18: 5h
+```
+Edit & save → Bot logs 3h to Feb 16, 5h to Feb 18! ✅
+
+### Q: Can I use GitHub Projects custom fields for daily hours?
+**A:** Projects V2 fields can only store single values. Use the **issue body** for daily breakdown:
+1. Set "Wrike Parent" custom field = "Yes" (marks as parent)
+2. Add hours in issue body: `Hours: 2024-02-16: 3h, 2024-02-18: 5h`
+3. Edit issue → Auto-syncs to correct dates!
+
+### Q: Do I need to run `@wrikemeup sync`?
+**A: No!** Just edit the issue. Bot automatically syncs when you save changes.
+
+### Q: What if I worked 32h total but across multiple days?
+**A:** Use daily breakdown to track which hours were on which days:
+```markdown
+Hours: 2024-02-15: 8h, 2024-02-16: 8h, 2024-02-17: 8h, 2024-02-18: 8h
+```
+
+### Q: How does incremental logging work?
+**A:** Bot tracks "Last Synced" in issue body:
+- Day 1: `Hours: 4h` → Bot logs 4h, updates "Last Synced: 4h"
+- Day 2: `Hours: 8h` → Bot logs 4h more (8-4=4), updates "Last Synced: 8h"
+- No duplicates! ✅
 
 ---
 
