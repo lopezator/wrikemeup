@@ -263,7 +263,7 @@ func handleBotCommand(wrikeClient *wrike.Client, githubClient *github.Client, co
 	cmd, err := github.ParseCommand(comment)
 	if err != nil {
 		// Invalid command - post helpful error message
-		errorMsg := "❌ Invalid command format.\n\n📖 See [Bot Commands Reference](https://github.com/lopezator/wrikemeup/blob/main/BOT_COMMANDS.md)"
+		errorMsg := "❌ Invalid command format.\n\n📖 See [README](https://github.com/lopezator/wrikemeup)"
 		if postErr := githubClient.PostCommentWithBody(config.GitHubIssueNumber, errorMsg); postErr != nil {
 			log.Printf("Warning: failed to post error message: %v", postErr)
 		}
@@ -273,19 +273,7 @@ func handleBotCommand(wrikeClient *wrike.Client, githubClient *github.Client, co
 	// Handle different command actions
 	switch cmd.Action {
 	case "log":
-		if cmd.DailyHours != nil && len(cmd.DailyHours) > 0 {
-			// New log format with daily hours
-			handleNewLogCommand(wrikeClient, githubClient, cmd, config, user)
-		} else {
-			// Legacy log format (retrieve time logs)
-			handleLegacyLogCommand(wrikeClient, githubClient, cmd, config)
-		}
-	case "link":
-		handleLinkCommand(githubClient, cmd, config)
-	case "loghours":
-		handleLogHoursCommand(wrikeClient, githubClient, cmd, config, user)
-	case "sync":
-		handleSyncCommand(wrikeClient, githubClient, config, user)
+		handleLogCommand(wrikeClient, githubClient, cmd, config, user)
 	case "delete":
 		handleDeleteCommand(wrikeClient, githubClient, cmd, config, user)
 	case "show":
@@ -295,19 +283,78 @@ func handleBotCommand(wrikeClient *wrike.Client, githubClient *github.Client, co
 	}
 }
 
-// handleNewLogCommand handles the new 'log' command with relative dates.
-func handleNewLogCommand(wrikeClient *wrike.Client, githubClient *github.Client, cmd *github.Command, config *wrikemeup.Config, user *userpkg.User) {
+// handleLogCommand handles the spec 'log' command.
+func handleLogCommand(wrikeClient *wrike.Client, githubClient *github.Client, cmd *github.Command, config *wrikemeup.Config, user *userpkg.User) {
 	// Get issue metadata
 	metadata, err := githubClient.GetIssueMetadata(config.GitHubIssueNumber)
 	if err != nil {
 		log.Fatalf("wrikemeup: failed to get issue metadata: %v", err)
 	}
 
-	// Check if linked to Wrike task
+	// Get or create Wrike task
+	var wrikeTaskID string
 	if metadata.WrikeTaskID == "" {
-		errorMsg := "❌ This issue is not linked to a Wrike task.\n\nPlease add the `wrike-parent` label or use `@wrikemeup link <task-id>` first."
-		if err := githubClient.PostCommentWithBody(config.GitHubIssueNumber, errorMsg); err != nil {
-			log.Printf("Warning: failed to post error: %v", err)
+		// Create Wrike task
+		task, err := wrikeClient.CreateTask(config.WrikeFolderID, metadata.Title, metadata.Body)
+		if err != nil {
+			errorMsg := fmt.Sprintf("❌ Failed to create Wrike task: %v", err)
+			if postErr := githubClient.PostCommentWithBody(config.GitHubIssueNumber, errorMsg); postErr != nil {
+				log.Printf("Warning: failed to post error: %v", postErr)
+			}
+			log.Fatalf("wrikemeup: failed to create Wrike task: %v", err)
+		}
+		wrikeTaskID = task.ID
+		
+		// Store Wrike ID
+		if err := githubClient.AddOrUpdateWrikeTaskID(config.GitHubIssueNumber, wrikeTaskID); err != nil {
+			log.Printf("Warning: failed to store Wrike ID: %v", err)
+		}
+		
+		log.Printf("Created Wrike task %s for issue #%s", wrikeTaskID, config.GitHubIssueNumber)
+	} else {
+		wrikeTaskID = metadata.WrikeTaskID
+	}
+
+	// Build daily hours map from entries
+	dailyHours := make(map[string]float64)
+	for _, entry := range cmd.LogEntries {
+		dailyHours[entry.Date] = entry.Hours
+	}
+
+	// Build comment for Wrike
+	comment := fmt.Sprintf("Logged from GitHub issue #%s by %s", config.GitHubIssueNumber, user.GitHubUsername)
+
+	// Sync to Wrike
+	changes, err := wrikeClient.SyncDailyHoursWithTracking(wrikeTaskID, dailyHours, comment)
+	if err != nil {
+		errorMsg := fmt.Sprintf("❌ Failed to log hours to Wrike: %v", err)
+		if postErr := githubClient.PostCommentWithBody(config.GitHubIssueNumber, errorMsg); postErr != nil {
+			log.Printf("Warning: failed to post error: %v", postErr)
+		}
+		log.Fatalf("wrikemeup: failed to log hours: %v", err)
+	}
+
+	log.Printf("Logged %d date(s) to Wrike task %s", len(dailyHours), wrikeTaskID)
+
+	// Get all current hours
+	allHours, err := wrikeClient.GetTimeLogsStructured(wrikeTaskID)
+	if err != nil {
+		log.Printf("Warning: failed to get current hours: %v", err)
+	}
+
+	// Convert to map
+	hoursMap := make(map[string]float64)
+	for _, tl := range allHours {
+		hoursMap[tl.TrackedDate] = tl.Hours
+	}
+
+	// Post summary
+	if err := githubClient.PostHoursSummary(config.GitHubIssueNumber, hoursMap, changes); err != nil {
+		log.Printf("Warning: failed to post summary: %v", err)
+	}
+
+	fmt.Printf("Successfully logged hours to Wrike task %s\n", wrikeTaskID)
+}
 		}
 		log.Fatal("wrikemeup: no Wrike task linked to this issue")
 	}
