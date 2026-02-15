@@ -15,14 +15,15 @@ import (
 
 // IssueMetadata holds metadata about a GitHub issue.
 type IssueMetadata struct {
-	Number          int
-	Title           string
-	Body            string
-	WrikeTaskID     string
-	Hours           float64
-	DailyHours      map[string]float64 // Date -> Hours mapping
-	LastSyncedHours float64            // Track last synced amount for incremental logging
-	SubIssues       []int
+	Number           int
+	Title            string
+	Body             string
+	WrikeTaskID      string
+	Hours            float64
+	DailyHours       map[string]float64 // Date -> Hours mapping
+	LastSyncedHours  float64            // Track last synced amount for incremental logging
+	SubIssues        []int
+	ValidationErrors []string // Any errors found while parsing hours
 }
 
 // Comment represents a GitHub issue comment.
@@ -42,8 +43,9 @@ var (
 	parentRefRegex   = regexp.MustCompile(`(?i)(parent|related to|part of)[:\s]*#%d`)
 	tasklistRefRegex = regexp.MustCompile(`-\s*\[[ x]\]\s*#%d`)
 	issueRefRegex    = regexp.MustCompile(`\b#%d\b`)
-	hoursBlockRegex  = regexp.MustCompile(`(?i)hours?:\s*\n((?:\s*-\s*.+\n?)+)`)
-	hoursEntryRegex  = regexp.MustCompile(`-\s*(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}|\d{1,2})\s*=\s*([\d.]+)h?`)
+	// New comma-separated format: Hours: 16: 3h, 17: 4h, 2024-02-18: 2h
+	hoursCommaSepRegex = regexp.MustCompile(`(?i)hours?:\s*(.+)`)
+	hoursEntryRegex    = regexp.MustCompile(`(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}|\d{1,2})\s*:\s*([\d.]+)h?`)
 )
 
 // GetIssueMetadata retrieves metadata for a GitHub issue.
@@ -99,15 +101,15 @@ func (c *Client) GetIssueMetadata(issueNumber string) (*IssueMetadata, error) {
 	if err != nil {
 		log.Printf("Warning: failed to get comments for issue #%s: %v", issueNumber, err)
 	} else {
-		commentHours, err := ParseHoursFromComments(comments, currentDate)
-		if err != nil {
-			log.Printf("Warning: failed to parse hours from comments: %v", err)
-		} else {
-			// Add hours from comments to daily hours
-			for date, hours := range commentHours {
-				metadata.DailyHours[date] += hours
-				metadata.Hours += hours
-			}
+		commentHours, validationErrors := ParseHoursFromComments(comments, currentDate)
+		if len(validationErrors) > 0 {
+			metadata.ValidationErrors = validationErrors
+			log.Printf("Warning: validation errors parsing hours from comments: %v", validationErrors)
+		}
+		// Add hours from comments to daily hours
+		for date, hours := range commentHours {
+			metadata.DailyHours[date] = hours
+			metadata.Hours += hours
 		}
 	}
 
@@ -373,24 +375,38 @@ func ParseSmartDate(dateStr string, currentDate string) (string, error) {
 	return "", fmt.Errorf("invalid date format: %s", dateStr)
 }
 
-// ParseHoursFromComments extracts hours from comments using the new format.
-// Format: Hours:\n- 16 = 3h\n- 03-17 = 4h\n- 2023-12-25 = 5h
-func ParseHoursFromComments(comments []Comment, currentDate string) (map[string]float64, error) {
+// ParseHoursFromComments extracts hours from comments using the new comma-separated format.
+// Format: Hours: 16: 3h, 17: 4h, 2024-02-18: 2h
+// Returns: map of date->hours and any validation errors found
+func ParseHoursFromComments(comments []Comment, currentDate string) (map[string]float64, []string) {
 	dailyHours := make(map[string]float64)
+	var validationErrors []string
 
 	for _, comment := range comments {
-		// Find Hours: blocks in comment
-		blockMatches := hoursBlockRegex.FindAllStringSubmatch(comment.Body, -1)
-		for _, blockMatch := range blockMatches {
-			if len(blockMatch) < 2 {
+		// Find "Hours:" lines in comment
+		matches := hoursCommaSepRegex.FindAllStringSubmatch(comment.Body, -1)
+		for _, match := range matches {
+			if len(match) < 2 {
 				continue
 			}
-			block := blockMatch[1]
 
-			// Parse each entry in the block
-			entryMatches := hoursEntryRegex.FindAllStringSubmatch(block, -1)
-			for _, entryMatch := range entryMatches {
-				if len(entryMatch) < 3 {
+			hoursLine := match[1]
+
+			// Split by comma to get individual entries
+			entries := regexp.MustCompile(`\s*,\s*`).Split(hoursLine, -1)
+
+			for _, entry := range entries {
+				entry = regexp.MustCompile(`^\s+|\s+$`).ReplaceAllString(entry, "") // Trim
+				if entry == "" {
+					continue
+				}
+
+				// Parse each entry: "16: 3h" or "2024-02-16: 4h"
+				entryMatch := hoursEntryRegex.FindStringSubmatch(entry)
+				if entryMatch == nil || len(entryMatch) < 3 {
+					// Invalid format
+					validationErrors = append(validationErrors,
+						fmt.Sprintf("Invalid entry format: '%s'. Expected format: '16: 3h' or '2024-02-16: 4h'", entry))
 					continue
 				}
 
@@ -400,22 +416,29 @@ func ParseHoursFromComments(comments []Comment, currentDate string) (map[string]
 				// Parse smart date
 				fullDate, err := ParseSmartDate(dateStr, currentDate)
 				if err != nil {
-					log.Printf("Warning: failed to parse date '%s': %v", dateStr, err)
+					validationErrors = append(validationErrors,
+						fmt.Sprintf("Invalid date '%s': %v", dateStr, err))
 					continue
 				}
 
 				// Parse hours
 				hours, err := strconv.ParseFloat(hoursStr, 64)
 				if err != nil {
-					log.Printf("Warning: failed to parse hours '%s': %v", hoursStr, err)
+					validationErrors = append(validationErrors,
+						fmt.Sprintf("Invalid hours '%s': must be a number", hoursStr))
 					continue
 				}
 
-				// Add to daily hours (accumulate if same date)
-				dailyHours[fullDate] += hours
+				// Update daily hours (latest value wins for same date)
+				// If hours is 0, we'll delete the entry
+				if hours == 0 {
+					delete(dailyHours, fullDate)
+				} else {
+					dailyHours[fullDate] = hours
+				}
 			}
 		}
 	}
 
-	return dailyHours, nil
+	return dailyHours, validationErrors
 }

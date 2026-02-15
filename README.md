@@ -8,20 +8,19 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 
 **Simple workflow:**
 1. Add `wrike-parent` label to issue → Bot creates Wrike task
-2. Log hours via **comments** (preserves history!):
-   ```markdown
-   Hours:
-   - 16 = 3h
-   - 17 = 4.5h
-   - 18 = 2h
+2. Log hours via **comment** (one simple line!):
    ```
-3. Edit issue → Hours **automatically** sync to Wrike!
+   Hours: 16: 3h, 17: 4.5h, 18: 2h
+   ```
+3. Bot automatically syncs and shows you a summary table!
 4. Done! ✅
 
 **Smart date formats:**
-- `16 = 3h` - Day only (current month/year)
-- `03-16 = 4h` - Month-day (current year)
-- `2023-12-25 = 5h` - Full date when needed
+- `16: 3h` - Day only (current month/year)
+- `03-16: 4h` - Month-day (current year)
+- `2024-02-16: 5h` - Full date when needed
+
+**Edit/Delete:** Just edit your comment or use `0h` to delete!
 
 **📖 [Complete Setup Guide →](SETUP_GUIDE.md)**
 
@@ -32,15 +31,16 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 WrikeMeUp is a GitHub automation bot that seamlessly integrates GitHub issues with Wrike tasks for hour tracking:
 
 - **💬 Comment-Based Logging**: Log hours via comments (full traceability!)
-- **📊 Auto Summary Tables**: Bot responds with formatted hour summaries
-- **✏️ Edit Support**: Update hours (e.g., `16 = 2h` → `16 = 5h`)
-- **🗑️ Delete Support**: Remove hour entries by deleting comment lines
-- **🔄 Smart Sync**: Automatically detects adds/updates/deletes
+- **📊 Auto Summary Tables**: Bot responds with current state of all hours
+- **✨ Simple Format**: Comma-separated entries (easy to type, not error-prone!)
+- **✏️ Edit Support**: Update hours anytime
+- **🗑️ Delete Support**: Set to `0h` or edit comment to remove entries
+- **🔄 Incremental Logging**: Only add new days, don't repeat everything
+- **⚠️ Format Validation**: Bot tells you if format is wrong
 - **🛡️ Wrike-Safe**: Handles manual Wrike edits gracefully
 - **🗓️ Smart Date Format**: Only specify what's needed (day/month-day/full date)
-- **📊 Multiple Entries**: Log multiple days in one comment
+- **📝 Multiple Entries**: Log multiple days in one line
 - **🔗 Auto-link Issues to Wrike Tasks**: Automatically create and link Wrike tasks from GitHub issues
-- **⏱️ Hour Tracking**: Track hours in comments or issue body
 - **🔄 Automatic Sync**: Hours sync when you add/edit comments or issues
 - **📊 Subtask Aggregation**: Automatically sum hours from child issues into parent Wrike tasks
 - **🤖 Multiple Workflows**: Support for both label-based and GitHub Projects custom fields
@@ -52,17 +52,33 @@ WrikeMeUp is a GitHub automation bot that seamlessly integrates GitHub issues wi
 ```markdown
 # Add a comment to your issue:
 
-Hours:
-- 16 = 3h
-- 17 = 4.5h
-- 18 = 2h
+Hours: 16: 3h, 17: 4.5h, 18: 2h
 
-Bot automatically logs and responds:
+# Bot automatically logs and responds:
 ```
 
 | Date | Hours | Status |
 |------|-------|--------|
-| 2024-02-16 | 3.00h | Added |
+| 2024-02-16 | 3.00h | ✓ |
+| 2024-02-17 | 4.50h | ✓ |
+| 2024-02-18 | 2.00h | ✓ |
+
+**Total: 9.50h**
+
+**Incremental Logging (Just add new days!):**
+```markdown
+# First comment:
+Hours: 16: 3h
+
+# Later, second comment (add more days):
+Hours: 17: 4.5h, 18: 2h
+
+# Bot shows CURRENT STATE (all days):
+```
+
+| Date | Hours | Status |
+|------|-------|--------|
+| 2024-02-16 | 3.00h | ✓ |
 | 2024-02-17 | 4.50h | Added |
 | 2024-02-18 | 2.00h | Added |
 
@@ -70,51 +86,46 @@ Bot automatically logs and responds:
 
 **Editing Hours:**
 ```markdown
-# Update your comment (change 3h to 5h):
+# Just add another comment with updated hours:
+Hours: 16: 5h
 
-Hours:
-- 16 = 5h   ← Changed from 3h
-- 17 = 4.5h
-- 18 = 2h
-
-Bot detects the change:
+# Bot updates day 16 and shows current state:
 ```
 
 | Date | Hours | Status |
 |------|-------|--------|
 | 2024-02-16 | 5.00h | Updated: 3.00h → 5.00h |
-| 2024-02-17 | 4.50h | Unchanged: 4.50h |
-| 2024-02-18 | 2.00h | Unchanged: 2.00h |
+| 2024-02-17 | 4.50h | ✓ |
+| 2024-02-18 | 2.00h | ✓ |
 
 **Total: 11.50h**
 
-**Deleting Hours:**
+**Deleting Hours (use 0h):**
 ```markdown
-# Remove a line from your comment:
+# Set hours to 0h to delete:
+Hours: 17: 0h
 
-Hours:
-- 16 = 5h
-- 18 = 2h   ← Deleted line 17
-
-Bot detects deletion:
+# Bot removes day 17:
 ```
 
 | Date | Hours | Status |
 |------|-------|--------|
-| 2024-02-16 | 5.00h | Unchanged: 5.00h |
-| 2024-02-17 | - | Deleted: 4.50h |
-| 2024-02-18 | 2.00h | Unchanged: 2.00h |
+| 2024-02-16 | 5.00h | ✓ |
+| 2024-02-18 | 2.00h | ✓ |
 
 **Total: 7.00h**
+_(Day 17 deleted)_
 
 **Smart Date Formats**
-```markdown
-Hours:
-- 16 = 3h           # Day only → 2024-02-16
-- 03-16 = 4h        # Month-day → 2024-03-16
-- 2023-12-25 = 5h   # Full date → 2023-12-25
+```
+Hours: 16: 3h, 03-16: 4h, 2023-12-25: 5h
 
-Multiple entries in one comment! 🎉
+# Formats:
+# 16: 3h           → Day only (current month/year)
+# 03-16: 4h        → Month-day (current year)
+# 2023-12-25: 5h   → Full date
+
+Multiple entries, one line! 🎉
 ```
 
 **Child Aggregation**
@@ -122,9 +133,9 @@ Multiple entries in one comment! 🎉
 Parent Issue (#100) [wrike-parent]
 ├── Wrike Task ID: IEABC123
 │
-├── Child #101 comment: "Hours:\n- 16 = 2h\n- 17 = 1h"
-├── Child #102 comment: "Hours:\n- 16 = 3h"
-└── Child #103 comment: "Hours:\n- 18 = 4h"
+├── Child #101 comment: "Hours: 16: 2h, 17: 1h"
+├── Child #102 comment: "Hours: 16: 3h"
+└── Child #103 comment: "Hours: 18: 4h"
 
 Edit parent → Bot aggregates:
 - Feb 16: 5h (2h + 3h)

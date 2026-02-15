@@ -140,6 +140,15 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 		log.Fatalf("wrikemeup: failed to get issue metadata: %v", err)
 	}
 
+	// Check for validation errors and post them
+	if len(metadata.ValidationErrors) > 0 {
+		log.Printf("Found %d validation errors in hours format", len(metadata.ValidationErrors))
+		if err := githubClient.PostValidationErrors(config.GitHubIssueNumber, metadata.ValidationErrors); err != nil {
+			log.Printf("Warning: failed to post validation errors: %v", err)
+		}
+		// Still continue with valid hours if any were found
+	}
+
 	// Check if issue is linked to a Wrike task
 	if metadata.WrikeTaskID == "" {
 		log.Printf("Issue #%s is not linked to a Wrike task, skipping sync", config.GitHubIssueNumber)
