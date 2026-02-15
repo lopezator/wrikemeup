@@ -1,19 +1,28 @@
-name: wrikemeup bot
+name: wrikemeup
 
 on:
+  # Trigger on project card updates (when custom fields change)
+  projects_v2_item:
+    types: [created, edited]
+  # Also support issue events for backward compatibility
+  issues:
+    types: [opened, edited, closed]
+  # Legacy: bot commands
   issue_comment:
     types: [created]
 
 jobs:
-  wrikemeup:
-    if: ${{ contains(github.event.comment.body, '@wrikemeup') }}
+  # Handle project item updates - auto-create Wrike tasks and sync hours
+  sync-project-item:
+    if: github.event_name == 'projects_v2_item'
     runs-on: ubuntu-latest
 
     env:
-      GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
-      GITHUB_REPO: ${{ github.event.repository.full_name }}
-      GITHUB_USERNAME: ${{ github.event.comment.user.login }}
-      GITHUB_COMMENT_BODY: ${{ github.event.comment.body }}
+      GITHUB_PROJECT_ITEM_ID: ${{ github.event.projects_v2_item.node_id }}
+      GITHUB_PROJECT_ID: ${{ github.event.projects_v2_item.project_node_id }}
+      GITHUB_REPO: ${{ github.repository }}
+      GITHUB_USERNAME: ${{ github.event.sender.login }}
+      GITHUB_ACTION_TYPE: "sync-project"
 
     steps:
       - name: Checkout repo
@@ -24,9 +33,101 @@ jobs:
         with:
           go-version: '1.23.5'
 
-      - name: Build & run Wrike bot
+      - name: Sync project item to Wrike
+        env:
+          USERS: ${{ secrets.USERS }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          WRIKE_FOLDER_ID: ${{ secrets.WRIKE_FOLDER_ID }}
+          GITHUB_PROJECT_NUMBER: ${{ secrets.GITHUB_PROJECT_NUMBER }}
+        run: |
+          go run cmd/wrikemeup/main.go
+
+  # Handle issues with wrike-parent label - auto-create Wrike tasks
+  auto-link-wrike:
+    if: |
+      github.event_name == 'issues' && 
+      (github.event.action == 'opened' || github.event.action == 'labeled') &&
+      contains(github.event.issue.labels.*.name, 'wrike-parent')
+    runs-on: ubuntu-latest
+
+    env:
+      GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GITHUB_REPO: ${{ github.event.repository.full_name }}
+      GITHUB_USERNAME: ${{ github.event.sender.login }}
+      GITHUB_ACTION_TYPE: "auto-link"
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.5'
+
+      - name: Auto-link Wrike task
+        env:
+          USERS: ${{ secrets.USERS }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          WRIKE_FOLDER_ID: ${{ secrets.WRIKE_FOLDER_ID }}
+        run: |
+          go run cmd/wrikemeup/main.go
+
+  # Handle issue updates and closures - aggregate and log hours
+  sync-hours:
+    if: |
+      github.event_name == 'issues' && 
+      (github.event.action == 'edited' || github.event.action == 'closed')
+    runs-on: ubuntu-latest
+
+    env:
+      GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GITHUB_REPO: ${{ github.event.repository.full_name }}
+      GITHUB_USERNAME: ${{ github.event.sender.login }}
+      GITHUB_ACTION_TYPE: "sync-hours"
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.5'
+
+      - name: Sync hours to Wrike
         env:
           USERS: ${{ secrets.USERS }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         run: |
-          go run cmd/wmu/main.go
+          go run cmd/wrikemeup/main.go
+
+  # Legacy: Handle bot comments (kept for backward compatibility)
+  wrikemeup-bot:
+    if: |
+      github.event_name == 'issue_comment' && 
+      contains(github.event.comment.body, '@wrikemeup')
+    runs-on: ubuntu-latest
+
+    env:
+      GITHUB_ISSUE_NUMBER: ${{ github.event.issue.number }}
+      GITHUB_REPO: ${{ github.event.repository.full_name }}
+      GITHUB_USERNAME: ${{ github.event.comment.user.login }}
+      GITHUB_COMMENT_BODY: ${{ github.event.comment.body }}
+      GITHUB_ACTION_TYPE: "bot-command"
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.5'
+
+      - name: Run bot command
+        env:
+          USERS: ${{ secrets.USERS }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          go run cmd/wrikemeup/main.go

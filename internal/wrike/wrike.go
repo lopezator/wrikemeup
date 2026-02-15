@@ -1,9 +1,13 @@
 package wrike
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"time"
 )
 
 // Client represents a Wrike client that can be used to interact with the Wrike API.
@@ -12,12 +16,67 @@ type Client struct {
 	token string
 }
 
+// Task represents a Wrike task response.
+type Task struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// TaskResponse represents the Wrike API response for task operations.
+type TaskResponse struct {
+	Data []Task `json:"data"`
+}
+
 // NewClient creates a new Wrike client with the provided token.
 func NewClient(wrikeToken string) *Client {
 	return &Client{
 		Client: &http.Client{},
 		token:  wrikeToken,
 	}
+}
+
+// CreateTask creates a new Wrike task in the specified folder.
+func (c *Client) CreateTask(folderID string, title string, description string) (*Task, error) {
+	url := fmt.Sprintf("https://app-eu.wrike.com/api/v4/folders/%s/tasks", folderID)
+	
+	payload := map[string]interface{}{
+		"title":       title,
+		"description": description,
+	}
+	
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("wrike: failed to marshal payload: %w", err)
+	}
+	
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return nil, fmt.Errorf("wrike: failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+	
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("wrike: API call failed: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("wrike: API returned error: %s (status: %d)", string(body), resp.StatusCode)
+	}
+	
+	var taskResp TaskResponse
+	if err := json.NewDecoder(resp.Body).Decode(&taskResp); err != nil {
+		return nil, fmt.Errorf("wrike: failed to decode response: %w", err)
+	}
+	
+	if len(taskResp.Data) == 0 {
+		return nil, fmt.Errorf("wrike: no task returned in response")
+	}
+	
+	return &taskResp.Data[0], nil
 }
 
 // GetTimeLogs retrieves the time logs for a given Wrike task ID.
@@ -46,4 +105,46 @@ func (c *Client) GetTimeLogs(wrikeTaskID string) ([]byte, error) {
 		log.Fatal("wrikemeup: error reading response body:", err)
 	}
 	return body, nil
+}
+
+// LogHours logs hours to a Wrike task.
+func (c *Client) LogHours(wrikeTaskID string, hours float64, comment string) error {
+	url := fmt.Sprintf("https://app-eu.wrike.com/api/v4/tasks/%s/timelogs", wrikeTaskID)
+	
+	// Convert hours to minutes (Wrike API expects minutes)
+	minutes := int(hours * 60)
+	
+	// Use current date for the timelog
+	trackedDate := time.Now().Format("2006-01-02")
+	
+	payload := map[string]interface{}{
+		"hours":       minutes / 60,
+		"trackedDate": trackedDate,
+		"comment":     comment,
+	}
+	
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("wrike: failed to marshal payload: %w", err)
+	}
+	
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("wrike: failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", "application/json")
+	
+	resp, err := c.Do(req)
+	if err != nil {
+		return fmt.Errorf("wrike: API call failed: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("wrike: API returned error: %s (status: %d)", string(body), resp.StatusCode)
+	}
+	
+	return nil
 }

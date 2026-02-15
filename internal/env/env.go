@@ -3,6 +3,7 @@ package env
 import (
 	"errors"
 	"os"
+	"strconv"
 
 	"github.com/lopezator/wrikemeup/internal/wrikemeup"
 )
@@ -18,10 +19,6 @@ func Retrieve() (*wrikemeup.Config, error) {
 	if githubUsername == "" {
 		return nil, errors.New("env: missing GITHUB_USERNAME environment variable")
 	}
-	gitHubCommentBody := os.Getenv("GITHUB_COMMENT_BODY")
-	if gitHubCommentBody == "" {
-		return nil, errors.New("env: missing GITHUB_COMMENT_BODY environment variable")
-	}
 	gitHubBotToken := os.Getenv("BOT_TOKEN")
 	if gitHubBotToken == "" {
 		return nil, errors.New("env: missing BOT_TOKEN environment variable")
@@ -30,16 +27,42 @@ func Retrieve() (*wrikemeup.Config, error) {
 	if gitHubRepo == "" {
 		return nil, errors.New("env: missing GITHUB_REPO environment variable")
 	}
+
+	// Optional environment variables
 	gitHubIssueNumber := os.Getenv("GITHUB_ISSUE_NUMBER")
-	if gitHubIssueNumber == "" {
-		return nil, errors.New("env: missing GITHUB_ISSUE_NUMBER environment variable")
+	gitHubCommentBody := os.Getenv("GITHUB_COMMENT_BODY")
+	gitHubActionType := os.Getenv("GITHUB_ACTION_TYPE")
+	wrikeFolderID := os.Getenv("WRIKE_FOLDER_ID")
+	gitHubProjectID := os.Getenv("GITHUB_PROJECT_ID")
+	gitHubProjectItemID := os.Getenv("GITHUB_PROJECT_ITEM_ID")
+	gitHubProjectNumberStr := os.Getenv("GITHUB_PROJECT_NUMBER")
+
+	// Parse project number
+	var gitHubProjectNumber int
+	if gitHubProjectNumberStr != "" {
+		var err error
+		gitHubProjectNumber, err = strconv.Atoi(gitHubProjectNumberStr)
+		if err != nil {
+			return nil, errors.New("env: GITHUB_PROJECT_NUMBER must be a number")
+		}
 	}
+
+	// Default to bot-command if not specified
+	if gitHubActionType == "" {
+		gitHubActionType = "bot-command"
+	}
+
 	return &wrikemeup.Config{
-		Users:             usersEnv,
-		GitHubUsername:    githubUsername,
-		GitHubCommentBody: gitHubCommentBody,
-		GitHubBotToken:    gitHubBotToken,
-		GitHubRepo:        gitHubRepo,
-		GitHubIssueNumber: gitHubIssueNumber,
+		Users:               usersEnv,
+		GitHubUsername:      githubUsername,
+		GitHubCommentBody:   gitHubCommentBody,
+		GitHubBotToken:      gitHubBotToken,
+		GitHubRepo:          gitHubRepo,
+		GitHubIssueNumber:   gitHubIssueNumber,
+		GitHubActionType:    gitHubActionType,
+		WrikeFolderID:       wrikeFolderID,
+		GitHubProjectID:     gitHubProjectID,
+		GitHubProjectItemID: gitHubProjectItemID,
+		GitHubProjectNumber: gitHubProjectNumber,
 	}, nil
 }

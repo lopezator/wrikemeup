@@ -28,6 +28,11 @@ func NewClient(botToken string, repo string) *Client {
 // PostComment posts a comment on a GitHub issue using the GitHub bot.
 func (c *Client) PostComment(issueNumber string) error {
 	comment := "Hey! I just logged my hours on this task. Please check it out."
+	return c.PostCommentWithBody(issueNumber, comment)
+}
+
+// PostCommentWithBody posts a custom comment on a GitHub issue.
+func (c *Client) PostCommentWithBody(issueNumber string, comment string) error {
 	commentURL := fmt.Sprintf("https://api.github.com/repos/%s/issues/%s/comments", c.repo, issueNumber)
 	commentPayload := map[string]string{
 		"body": comment,
