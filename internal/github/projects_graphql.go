@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
 // ProjectItem represents a GitHub Projects V2 item.
@@ -111,8 +113,10 @@ func (c *Client) GetProjectItemByIssue(issueNumber int, projectNumber int) (*Pro
 				subIssueMatches := subIssuesRegex.FindAllStringSubmatch(body, -1)
 				for _, match := range subIssueMatches {
 					if len(match) >= 2 {
-						var num int
-						fmt.Sscanf(match[1], "%d", &num)
+						num, err := strconv.Atoi(match[1])
+						if err != nil {
+							continue
+						}
 						if num > 0 {
 							projectItem.SubIssues = append(projectItem.SubIssues, num)
 						}
@@ -181,8 +185,10 @@ func (c *Client) parseProjectField(field map[string]interface{}, item *ProjectIt
 		}
 	case "Wrike Parent":
 		// Could be checkbox (name) or select field
+		// Accept various boolean-like values (case-insensitive)
 		if name, ok := field["name"].(string); ok {
-			item.IsWrikeParent = (name == "Yes" || name == "True" || name == "Enabled")
+			nameLower := strings.ToLower(name)
+			item.IsWrikeParent = (nameLower == "yes" || nameLower == "true" || nameLower == "enabled" || nameLower == "checked")
 		}
 	}
 }
@@ -335,13 +341,4 @@ func (c *Client) executeGraphQL(query string, variables map[string]interface{}) 
 	}
 
 	return &graphQLResp, nil
-}
-
-// splitRepo splits the repo string into owner and name.
-func (c *Client) splitRepo() (string, string) {
-	parts := bytes.Split([]byte(c.repo), []byte("/"))
-	if len(parts) != 2 {
-		return "", ""
-	}
-	return string(parts[0]), string(parts[1])
 }

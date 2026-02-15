@@ -1,2 +1,3 @@
 wrike-credentials.json
-wrike.env/main
+wrike.env
+/main

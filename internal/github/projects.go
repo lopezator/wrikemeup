@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 )
@@ -144,4 +145,83 @@ func (c *Client) AddOrUpdateWrikeTaskID(issueNumber string, taskID string) error
 	}
 
 	return c.UpdateIssueBody(issueNumber, body)
+}
+
+// GetChildIssues retrieves all child issues (sub-issues) for a parent issue.
+// It searches for issues that have "Parent: #<issueNumber>" or are in a tasklist.
+func (c *Client) GetChildIssues(issueNumber int) ([]int, error) {
+	// Search for issues that reference this issue as parent
+	// GitHub's issue search supports finding issues that link to others
+	owner, repo := c.splitRepo()
+
+	// Search for issues in the same repo that might be children
+	// We'll look for issues that mention this issue number
+	searchQuery := fmt.Sprintf("repo:%s/%s %d in:body state:open,closed", owner, repo, issueNumber)
+
+	urlStr := fmt.Sprintf("https://api.github.com/search/issues?q=%s&per_page=100", url.QueryEscape(searchQuery))
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil {
+		return nil, fmt.Errorf("github: failed to create search request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.botToken)
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("github: search request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("github: search API error: %s (status: %d)", string(body), resp.StatusCode)
+	}
+
+	var searchResult struct {
+		Items []struct {
+			Number int    `json:"number"`
+			Body   string `json:"body"`
+		} `json:"items"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
+		return nil, fmt.Errorf("github: failed to decode search response: %w", err)
+	}
+
+	var childIssues []int
+	parentRef := fmt.Sprintf("#%d", issueNumber)
+
+	for _, item := range searchResult.Items {
+		// Skip the parent issue itself
+		if item.Number == issueNumber {
+			continue
+		}
+
+		// Check if this issue references the parent
+		// Look for patterns like "Parent: #123" or in tasklists
+		if regexp.MustCompile(`(?i)(parent|related to|part of)[:\s]*#`+fmt.Sprintf("%d", issueNumber)).MatchString(item.Body) ||
+			regexp.MustCompile(`-\s*\[[ x]\]\s*#`+fmt.Sprintf("%d", issueNumber)).MatchString(item.Body) {
+			childIssues = append(childIssues, item.Number)
+		} else if containsIssueReference(item.Body, parentRef) {
+			// Simple check if it mentions the parent issue
+			childIssues = append(childIssues, item.Number)
+		}
+	}
+
+	return childIssues, nil
+}
+
+// containsIssueReference checks if a text contains a reference to an issue.
+func containsIssueReference(text, issueRef string) bool {
+	// Look for the issue reference in the text
+	return regexp.MustCompile(`\b` + regexp.QuoteMeta(issueRef) + `\b`).MatchString(text)
+}
+
+// splitRepo splits the repo string into owner and name.
+func (c *Client) splitRepo() (string, string) {
+	parts := bytes.Split([]byte(c.repo), []byte("/"))
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return string(parts[0]), string(parts[1])
 }

@@ -111,14 +111,11 @@ func (c *Client) GetTimeLogs(wrikeTaskID string) ([]byte, error) {
 func (c *Client) LogHours(wrikeTaskID string, hours float64, comment string) error {
 	url := fmt.Sprintf("https://app-eu.wrike.com/api/v4/tasks/%s/timelogs", wrikeTaskID)
 
-	// Convert hours to minutes (Wrike API expects minutes)
-	minutes := int(hours * 60)
-
 	// Use current date for the timelog
 	trackedDate := time.Now().Format("2006-01-02")
 
 	payload := map[string]interface{}{
-		"hours":       minutes / 60,
+		"hours":       hours,
 		"trackedDate": trackedDate,
 		"comment":     comment,
 	}

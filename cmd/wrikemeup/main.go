@@ -112,6 +112,11 @@ func handleAutoLink(wrikeClient *wrike.Client, githubClient *github.Client, conf
 
 // handleSyncHours syncs hours from the GitHub issue to the Wrike task.
 func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, config *wrikemeup.Config, user *userpkg.User) {
+	issueNum, err := strconv.Atoi(config.GitHubIssueNumber)
+	if err != nil {
+		log.Fatalf("wrikemeup: invalid issue number: %v", err)
+	}
+
 	// Get issue metadata
 	metadata, err := githubClient.GetIssueMetadata(config.GitHubIssueNumber)
 	if err != nil {
@@ -127,16 +132,25 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 	// Calculate total hours
 	totalHours := metadata.Hours
 
-	// Aggregate hours from sub-issues
-	if len(metadata.SubIssues) > 0 {
-		for _, subIssueNum := range metadata.SubIssues {
-			subMetadata, err := githubClient.GetIssueMetadata(strconv.Itoa(subIssueNum))
+	// Automatically find ALL child issues that reference this parent
+	childIssues, err := githubClient.GetChildIssues(issueNum)
+	if err != nil {
+		log.Printf("Warning: failed to get child issues: %v", err)
+		childIssues = []int{}
+	}
+
+	// Aggregate hours from all child issues
+	if len(childIssues) > 0 {
+		log.Printf("Found %d child issues for parent #%d", len(childIssues), issueNum)
+		for _, childNum := range childIssues {
+			childMetadata, err := githubClient.GetIssueMetadata(strconv.Itoa(childNum))
 			if err != nil {
-				log.Printf("Warning: failed to get metadata for sub-issue #%d: %v", subIssueNum, err)
+				log.Printf("Warning: failed to get metadata for child issue #%d: %v", childNum, err)
 				continue
 			}
-			if subMetadata.Hours > 0 {
-				totalHours += subMetadata.Hours
+			if childMetadata.Hours > 0 {
+				log.Printf("  - Issue #%d: %.2fh", childNum, childMetadata.Hours)
+				totalHours += childMetadata.Hours
 			}
 		}
 	}
@@ -149,8 +163,8 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 
 	// Log hours to Wrike
 	comment := fmt.Sprintf("Auto-synced from GitHub issue #%s", config.GitHubIssueNumber)
-	if len(metadata.SubIssues) > 0 {
-		comment = fmt.Sprintf("Auto-synced from GitHub issue #%s (including %d sub-issues)", config.GitHubIssueNumber, len(metadata.SubIssues))
+	if len(childIssues) > 0 {
+		comment = fmt.Sprintf("Auto-synced from GitHub issue #%s (aggregated %d child issues)", config.GitHubIssueNumber, len(childIssues))
 	}
 
 	if err := wrikeClient.LogHours(metadata.WrikeTaskID, totalHours, comment); err != nil {
@@ -159,8 +173,8 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 
 	// Post success comment
 	successComment := fmt.Sprintf("✅ Synced %.2fh to Wrike task %s", totalHours, metadata.WrikeTaskID)
-	if len(metadata.SubIssues) > 0 {
-		successComment += fmt.Sprintf(" (aggregated from %d sub-issues)", len(metadata.SubIssues))
+	if len(childIssues) > 0 {
+		successComment += fmt.Sprintf(" (aggregated from %d child issues)", len(childIssues))
 	}
 	if err := githubClient.PostCommentWithBody(config.GitHubIssueNumber, successComment); err != nil {
 		log.Printf("Warning: failed to post comment: %v", err)
