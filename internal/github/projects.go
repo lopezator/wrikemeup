@@ -195,7 +195,7 @@ func (c *Client) GetChildIssues(issueNumber int) ([]int, error) {
 
 	var childIssues []int
 
-	// Pre-compile patterns for this search
+	// Compile patterns with specific issue number (cannot be pre-compiled at package level)
 	parentPattern := regexp.MustCompile(fmt.Sprintf(`(?i)(parent|related to|part of)[:\s]*#%d`, issueNumber))
 	tasklistPattern := regexp.MustCompile(fmt.Sprintf(`-\s*\[[ x]\]\s*#%d`, issueNumber))
 

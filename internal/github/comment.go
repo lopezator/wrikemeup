@@ -35,6 +35,10 @@ func ParseComment(comment string) (string, error) {
 	return cmd.TaskID, nil
 }
 
+const (
+	helpMessage = "Use '@wrikemeup log <task-id>', '@wrikemeup link <task-id>', '@wrikemeup loghours <task-id> <hours>h', or '@wrikemeup sync'"
+)
+
 // ParseCommand parses the GitHub comment and returns a Command struct.
 func ParseCommand(comment string) (*Command, error) {
 	comment = strings.TrimSpace(comment)
@@ -75,5 +79,5 @@ func ParseCommand(comment string) (*Command, error) {
 		}, nil
 	}
 
-	return nil, errors.New("github: command not recognized. Use '@wrikemeup log <task-id>', '@wrikemeup link <task-id>', '@wrikemeup loghours <task-id> <hours>h', or '@wrikemeup sync'")
+	return nil, errors.New("github: command not recognized. " + helpMessage)
 }

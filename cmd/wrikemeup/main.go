@@ -69,7 +69,7 @@ func handleSyncProject(wrikeClient *wrike.Client, githubClient *github.Client, c
 	if projectItem.IsWrikeParent {
 		// Auto-create Wrike task if not already linked
 		if projectItem.WrikeTaskID == "" {
-			handleAutoLinkForProject(wrikeClient, githubClient, strconv.Itoa(issueNumber), config, user)
+			handleAutoLink(wrikeClient, githubClient, strconv.Itoa(issueNumber), config, user)
 		}
 	}
 
@@ -82,32 +82,25 @@ func handleSyncProject(wrikeClient *wrike.Client, githubClient *github.Client, c
 	fmt.Printf("Successfully processed project item for issue #%d\n", issueNumber)
 }
 
-// handleAutoLinkForProject is like handleAutoLink but for project-triggered events
-func handleAutoLinkForProject(wrikeClient *wrike.Client, githubClient *github.Client, issueNumber string, config *wrikemeup.Config, user *userpkg.User) {
-	tempConfig := *config
-	tempConfig.GitHubIssueNumber = issueNumber
-	handleAutoLink(wrikeClient, githubClient, &tempConfig, user)
-}
-
 // handleAutoLink automatically creates a Wrike task and links it to the GitHub issue.
-func handleAutoLink(wrikeClient *wrike.Client, githubClient *github.Client, config *wrikemeup.Config, user *userpkg.User) {
+func handleAutoLink(wrikeClient *wrike.Client, githubClient *github.Client, issueNumber string, config *wrikemeup.Config, user *userpkg.User) {
 	// Get issue metadata
-	metadata, err := githubClient.GetIssueMetadata(config.GitHubIssueNumber)
+	metadata, err := githubClient.GetIssueMetadata(issueNumber)
 	if err != nil {
 		log.Fatalf("wrikemeup: failed to get issue metadata: %v", err)
 	}
 
 	// Check if already linked
 	if metadata.WrikeTaskID != "" {
-		log.Printf("Issue #%s is already linked to Wrike task %s", config.GitHubIssueNumber, metadata.WrikeTaskID)
+		log.Printf("Issue #%s is already linked to Wrike task %s", issueNumber, metadata.WrikeTaskID)
 		return
 	}
 
 	// Check if folder ID is configured
 	if config.WrikeFolderID == "" {
-		log.Printf("WRIKE_FOLDER_ID not configured, skipping auto-link for issue #%s", config.GitHubIssueNumber)
+		log.Printf("WRIKE_FOLDER_ID not configured, skipping auto-link for issue #%s", issueNumber)
 		comment := "⚠️ Cannot auto-create Wrike task: WRIKE_FOLDER_ID not configured. Please use `@wrikemeup link <task-id>` to manually link a task."
-		if err := githubClient.PostCommentWithBody(config.GitHubIssueNumber, comment); err != nil {
+		if err := githubClient.PostCommentWithBody(issueNumber, comment); err != nil {
 			log.Printf("Warning: failed to post comment: %v", err)
 		}
 		return
