@@ -52,17 +52,41 @@ func handleSyncProject(wrikeClient *wrike.Client, githubClient *github.Client, c
 		log.Fatal("wrikemeup: GITHUB_PROJECT_NUMBER not configured")
 	}
 
-	// Note: GitHub doesn't directly provide issue number in projects_v2_item event
-	// We need to query the project item to get the issue number
-	// For now, log a message - in production, you'd query the GraphQL API to get the content_node_id
-	log.Printf("Project item %s updated in project %s", config.GitHubProjectItemID, config.GitHubProjectID)
-	log.Println("Note: Full project sync implementation requires querying the issue number from the project item")
+	// Get issue number and project data from the project item
+	projectItem, issueNumber, err := githubClient.GetIssueFromProjectItem(config.GitHubProjectItemID, config.GitHubProjectNumber)
+	if err != nil {
+		log.Fatalf("wrikemeup: failed to get issue from project item: %v", err)
+	}
 
-	// This would require additional GraphQL queries to:
-	// 1. Get the issue number from the project item
-	// 2. Read the custom field values
-	// 3. Process based on field changes
-	fmt.Println("Project sync feature ready - requires issue number extraction from project item")
+	if issueNumber == 0 {
+		log.Println("wrikemeup: no issue associated with this project item")
+		return
+	}
+
+	log.Printf("Processing project item for issue #%d", issueNumber)
+
+	// Check if this is marked as a Wrike parent via custom field
+	if projectItem.IsWrikeParent {
+		// Auto-create Wrike task if not already linked
+		if projectItem.WrikeTaskID == "" {
+			handleAutoLinkForProject(wrikeClient, githubClient, strconv.Itoa(issueNumber), config, user)
+		}
+	}
+
+	// If there are hours or a linked task, sync them
+	if projectItem.WrikeTaskID != "" || projectItem.Hours > 0 {
+		config.GitHubIssueNumber = strconv.Itoa(issueNumber)
+		handleSyncHours(wrikeClient, githubClient, config, user)
+	}
+
+	fmt.Printf("Successfully processed project item for issue #%d\n", issueNumber)
+}
+
+// handleAutoLinkForProject is like handleAutoLink but for project-triggered events
+func handleAutoLinkForProject(wrikeClient *wrike.Client, githubClient *github.Client, issueNumber string, config *wrikemeup.Config, user *userpkg.User) {
+	tempConfig := *config
+	tempConfig.GitHubIssueNumber = issueNumber
+	handleAutoLink(wrikeClient, githubClient, &tempConfig, user)
 }
 
 // handleAutoLink automatically creates a Wrike task and links it to the GitHub issue.
@@ -199,6 +223,8 @@ func handleBotCommand(wrikeClient *wrike.Client, githubClient *github.Client, co
 		handleLinkCommand(githubClient, cmd, config)
 	case "loghours":
 		handleLogHoursCommand(wrikeClient, githubClient, cmd, config, user)
+	case "sync":
+		handleSyncCommand(wrikeClient, githubClient, config, user)
 	default:
 		log.Fatalf("wrikemeup: unknown command action: %s", cmd.Action)
 	}
@@ -295,4 +321,11 @@ func handleLogHoursCommand(wrikeClient *wrike.Client, githubClient *github.Clien
 	}
 
 	fmt.Printf("Successfully logged %.2f hours to Wrike task %s\n", totalHours, taskID)
+}
+
+// handleSyncCommand handles the 'sync' command to manually sync hours to Wrike without closing the issue.
+func handleSyncCommand(wrikeClient *wrike.Client, githubClient *github.Client, config *wrikemeup.Config, user *userpkg.User) {
+	// This is essentially the same as handleSyncHours, but triggered manually via command
+	log.Printf("Manual sync requested for issue #%s", config.GitHubIssueNumber)
+	handleSyncHours(wrikeClient, githubClient, config, user)
 }

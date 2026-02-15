@@ -194,17 +194,17 @@ func (c *Client) GetChildIssues(issueNumber int) ([]int, error) {
 	}
 
 	var childIssues []int
-	
+
 	// Pre-compile patterns for this search
 	parentPattern := regexp.MustCompile(fmt.Sprintf(`(?i)(parent|related to|part of)[:\s]*#%d`, issueNumber))
 	tasklistPattern := regexp.MustCompile(fmt.Sprintf(`-\s*\[[ x]\]\s*#%d`, issueNumber))
-	
+
 	for _, item := range searchResult.Items {
 		// Skip the parent issue itself
 		if item.Number == issueNumber {
 			continue
 		}
-		
+
 		// Check if this issue references the parent using pre-compiled patterns
 		if parentPattern.MatchString(item.Body) || tasklistPattern.MatchString(item.Body) {
 			childIssues = append(childIssues, item.Number)

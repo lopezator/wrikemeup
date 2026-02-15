@@ -6,9 +6,16 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 
 **No server needed!** Runs automatically on GitHub Actions.
 
+**Option 1: Using GitHub Projects Custom Field (Recommended)**
+1. Set "Wrike Parent" custom field to "Yes" → Bot creates Wrike task
+2. Log hours in child issues: `Hours: 4.5h`
+3. Edit or sync anytime with `@wrikemeup sync` → Hours synced to Wrike!
+4. Done! ✅
+
+**Option 2: Using Label**
 1. Add `wrike-parent` label to issue → Bot creates Wrike task
 2. Log hours in child issues: `Hours: 4.5h`
-3. Close parent → Bot aggregates all child hours to Wrike
+3. Comment `@wrikemeup sync` to sync anytime (or close parent)
 4. Done! ✅
 
 **📖 [Complete Setup Guide →](SETUP_GUIDE.md)**
@@ -22,11 +29,27 @@ WrikeMeUp is a GitHub automation bot that seamlessly integrates GitHub issues wi
 - **🔗 Auto-link Issues to Wrike Tasks**: Automatically create and link Wrike tasks from GitHub issues
 - **⏱️ Hour Tracking**: Track hours in issue body or GitHub Projects custom fields
 - **📊 Subtask Aggregation**: Automatically sum hours from child issues into parent Wrike tasks
-- **🤖 Multiple Workflows**: Support for both issue-based and GitHub Projects custom fields (with GitHub Premium)
+- **🤖 Multiple Workflows**: Support for both label-based and GitHub Projects custom fields
+- **💾 Manual Sync**: Use `@wrikemeup sync` to sync hours anytime without closing the issue
 - **☁️ Serverless**: Runs on GitHub Actions - no infrastructure needed!
 
 ## How It Works
 
+**Option 1: GitHub Projects Custom Field**
+```
+GitHub Project:
+├── Destinations Feature (#100)
+    Custom Field "Wrike Parent": Yes ← Bot creates Wrike task
+    Custom Field "Wrike Task ID": IEABC123 (auto-added)
+    │
+    ├── Task A (#101) - Hours: 1h
+    ├── Task B (#102) - Hours: 3.5h
+    └── Task C (#103) - Hours: 5h
+
+Comment: @wrikemeup sync → Bot logs 9.5h to Wrike task ✅
+```
+
+**Option 2: Label-Based**
 ```
 GitHub Issue Hierarchy:
 ├── Destinations Feature (#100) [wrike-parent] ← Bot creates Wrike task
@@ -36,7 +59,7 @@ GitHub Issue Hierarchy:
     ├── Task B (#102) - Hours: 3.5h
     └── Task C (#103) - Hours: 5h
 
-When parent closes → Bot logs 9.5h to Wrike task ✅
+Comment: @wrikemeup sync OR close issue → Bot logs 9.5h to Wrike task ✅
 ```
 
 ## Quick Example
@@ -95,24 +118,44 @@ Hours: 1h
 
 ## Usage
 
-### Option 1: Simple Workflow (Recommended)
+### Option 1: GitHub Projects Custom Field (Recommended)
+
+**Setup your project:**
+1. Create custom fields in your GitHub Project:
+   - "Wrike Parent" (Single Select: Yes/No)
+   - "Hours" (Number)
+   - "Wrike Task ID" (Text - auto-filled by bot)
+
+2. Add issue to project and set "Wrike Parent" = "Yes"
+3. Bot creates Wrike task and fills in "Wrike Task ID"
+
+**Log hours anytime:**
+```markdown
+# In child issues, add:
+Hours: 4.5h
+
+# Then sync whenever you want (without closing):
+@wrikemeup sync
+```
+
+### Option 2: Label-Based Workflow
 
 1. Create issue + add `wrike-parent` label
 2. Add hours to child issues: `Hours: 4.5h`
-3. Close parent issue
+3. Sync hours anytime:
+   - Comment `@wrikemeup sync` OR
+   - Edit the issue OR
+   - Close the parent issue
 4. Hours auto-sync to Wrike ✅
 
-### Option 2: Bot Commands
+### Option 3: Bot Commands
 
 ```markdown
 @wrikemeup link IEABC123         # Link to existing Wrike task
+@wrikemeup sync                  # Sync hours NOW (without closing)
 @wrikemeup loghours IEABC123 4h  # Log hours manually
-@wrikemeup log IEABC123           # Get time logs
+@wrikemeup log IEABC123          # Get time logs
 ```
-
-### Option 3: GitHub Projects (Premium)
-
-Use custom fields: "Wrike Parent", "Hours", "Wrike Task ID"
 
 ---
 

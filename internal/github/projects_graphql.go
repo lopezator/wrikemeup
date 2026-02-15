@@ -35,6 +35,120 @@ type GraphQLResponse struct {
 	} `json:"errors,omitempty"`
 }
 
+// GetIssueFromProjectItem retrieves the issue number and project data from a project item ID.
+func (c *Client) GetIssueFromProjectItem(projectItemID string, projectNumber int) (*ProjectItem, int, error) {
+	query := `
+		query($itemId: ID!) {
+			node(id: $itemId) {
+				... on ProjectV2Item {
+					id
+					project {
+						id
+						number
+					}
+					content {
+						... on Issue {
+							number
+							body
+						}
+					}
+					fieldValues(first: 20) {
+						nodes {
+							... on ProjectV2ItemFieldNumberValue {
+								number
+								field {
+									... on ProjectV2Field {
+										name
+									}
+								}
+							}
+							... on ProjectV2ItemFieldTextValue {
+								text
+								field {
+									... on ProjectV2Field {
+										name
+									}
+								}
+							}
+							... on ProjectV2ItemFieldSingleSelectValue {
+								name
+								field {
+									... on ProjectV2SingleSelectField {
+										name
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"itemId": projectItemID,
+	}
+
+	resp, err := c.executeGraphQL(query, variables)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	projectItem := &ProjectItem{}
+	var issueNumber int
+
+	// Navigate through the response
+	if node, ok := resp.Data["node"].(map[string]interface{}); ok {
+		if id, ok := node["id"].(string); ok {
+			projectItem.ID = id
+		}
+
+		// Get project info
+		if project, ok := node["project"].(map[string]interface{}); ok {
+			if projID, ok := project["id"].(string); ok {
+				projectItem.ProjectID = projID
+			}
+		}
+
+		// Get issue content
+		if content, ok := node["content"].(map[string]interface{}); ok {
+			if num, ok := content["number"].(float64); ok {
+				issueNumber = int(num)
+				projectItem.IssueNumber = issueNumber
+			}
+
+			// Get issue body for subtask references
+			if body, ok := content["body"].(string); ok {
+				subIssueMatches := subIssuesRegex.FindAllStringSubmatch(body, -1)
+				for _, match := range subIssueMatches {
+					if len(match) >= 2 {
+						num, err := strconv.Atoi(match[1])
+						if err != nil {
+							continue
+						}
+						if num > 0 {
+							projectItem.SubIssues = append(projectItem.SubIssues, num)
+						}
+					}
+				}
+			}
+		}
+
+		// Parse field values
+		if fieldValues, ok := node["fieldValues"].(map[string]interface{}); ok {
+			if fieldNodes, ok := fieldValues["nodes"].([]interface{}); ok {
+				for _, fieldNode := range fieldNodes {
+					if field, ok := fieldNode.(map[string]interface{}); ok {
+						c.parseProjectField(field, projectItem)
+					}
+				}
+			}
+		}
+	}
+
+	return projectItem, issueNumber, nil
+}
+
 // GetProjectItemByIssue retrieves project item data for a GitHub issue using GraphQL.
 func (c *Client) GetProjectItemByIssue(issueNumber int, projectNumber int) (*ProjectItem, error) {
 	// Split repo into owner and name

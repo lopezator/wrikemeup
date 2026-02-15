@@ -159,12 +159,17 @@ The workflow file `.github/workflows/wrikemeup.yaml` is already configured! It w
    - Developers log hours in child issues: `Hours: 2.5h`
    - Update hours anytime by editing issue body
 
-5. **Close parent issue**
+5. **Sync hours to Wrike (choose one):**
+   - **Option A:** Comment `@wrikemeup sync` to sync anytime
+   - **Option B:** Edit the parent issue → Auto-syncs
+   - **Option C:** Close parent issue → Auto-syncs
    - Bot automatically:
      - Finds ALL child issues (that reference parent)
      - Aggregates hours: 4h + 2.5h + 3h = 9.5h
      - Logs 9.5h to Wrike task
    - ✅ Done!
+
+**💡 Tip:** Use `@wrikemeup sync` to log partial work without closing the parent issue!
 
 #### Example Hierarchy:
 
@@ -193,6 +198,12 @@ Result in Wrike:
 
 Use `@wrikemeup` commands in issue comments:
 
+#### Sync hours (without closing issue):
+```
+@wrikemeup sync
+```
+**💡 Use this for partial work logging!**
+
 #### Link existing Wrike task:
 ```
 @wrikemeup link IEABC123
@@ -208,24 +219,28 @@ Use `@wrikemeup` commands in issue comments:
 @wrikemeup log IEABC123
 ```
 
-### Method 3: GitHub Projects V2
+### Method 3: GitHub Projects V2 (Recommended for Teams)
 
 If you want to use Projects V2 (free for everyone!), use custom fields:
 
 1. **Create Project** with custom fields:
    - `Wrike Parent` (Single Select: Yes/No)
    - `Hours` (Number)
-   - `Wrike Task ID` (Text)
+   - `Wrike Task ID` (Text - auto-filled by bot)
 
 2. **Add issue to project**
 
 3. **Set "Wrike Parent" = Yes**
    - Bot creates Wrike task
-   - Bot fills in "Wrike Task ID" field
+   - Bot auto-fills "Wrike Task ID" field
 
-4. **Log hours** in "Hours" field
+4. **Log hours** in child issue bodies: `Hours: 4.5h`
 
-5. Bot syncs automatically!
+5. **Sync hours anytime:**
+   - Comment `@wrikemeup sync` on parent issue
+   - Or edit parent issue → Auto-syncs
+   
+**💡 Projects V2 gives you a visual board to track all tasks and hours!**
 
 ---
 

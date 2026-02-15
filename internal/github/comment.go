@@ -9,7 +9,7 @@ import (
 
 // Command represents a parsed command from a GitHub comment.
 type Command struct {
-	Action      string  // "log", "link", "loghours"
+	Action      string  // "log", "link", "loghours", "sync"
 	TaskID      string  // Wrike task ID
 	Hours       float64 // Hours to log
 	IssueNumber string  // GitHub issue number for linking
@@ -20,6 +20,7 @@ var (
 	reLog      = regexp.MustCompile(`@wrikemeup log ([A-Za-z0-9_-]+)`)
 	reLink     = regexp.MustCompile(`@wrikemeup link ([A-Za-z0-9_-]+)`)
 	reLogHours = regexp.MustCompile(`@wrikemeup loghours ([A-Za-z0-9_-]+)\s+([\d.]+)h?`)
+	reSync     = regexp.MustCompile(`@wrikemeup sync`)
 )
 
 // ParseComment parses the GitHub comment to extract the task ID (legacy function).
@@ -37,6 +38,13 @@ func ParseComment(comment string) (string, error) {
 // ParseCommand parses the GitHub comment and returns a Command struct.
 func ParseCommand(comment string) (*Command, error) {
 	comment = strings.TrimSpace(comment)
+
+	// Try to match sync command (no parameters)
+	if reSync.MatchString(comment) {
+		return &Command{
+			Action: "sync",
+		}, nil
+	}
 
 	// Try to match loghours command
 	if matches := reLogHours.FindStringSubmatch(comment); len(matches) >= 3 {
@@ -67,5 +75,5 @@ func ParseCommand(comment string) (*Command, error) {
 		}, nil
 	}
 
-	return nil, errors.New("github: command not recognized. Use '@wrikemeup log <task-id>', '@wrikemeup link <task-id>', or '@wrikemeup loghours <task-id> <hours>h'")
+	return nil, errors.New("github: command not recognized. Use '@wrikemeup log <task-id>', '@wrikemeup link <task-id>', '@wrikemeup loghours <task-id> <hours>h', or '@wrikemeup sync'")
 }
