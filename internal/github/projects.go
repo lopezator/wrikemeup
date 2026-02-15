@@ -106,7 +106,8 @@ func (c *Client) GetIssueMetadata(issueNumber string) (*IssueMetadata, error) {
 			metadata.ValidationErrors = validationErrors
 			log.Printf("Warning: validation errors parsing hours from comments: %v", validationErrors)
 		}
-		// Add hours from comments to daily hours
+		// ParseHoursFromComments returns final hours per date (latest value wins across all comments)
+		// So we assign (not accumulate) to get the final state
 		for date, hours := range commentHours {
 			metadata.DailyHours[date] = hours
 			metadata.Hours += hours
