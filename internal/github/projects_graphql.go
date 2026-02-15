@@ -10,13 +10,13 @@ import (
 
 // ProjectItem represents a GitHub Projects V2 item.
 type ProjectItem struct {
-	ID              string
-	ProjectID       string
-	IssueNumber     int
-	WrikeTaskID     string
-	Hours           float64
-	IsWrikeParent   bool
-	SubIssues       []int
+	ID            string
+	ProjectID     string
+	IssueNumber   int
+	WrikeTaskID   string
+	Hours         float64
+	IsWrikeParent bool
+	SubIssues     []int
 }
 
 // GraphQLRequest represents a GraphQL request.
@@ -37,7 +37,7 @@ type GraphQLResponse struct {
 func (c *Client) GetProjectItemByIssue(issueNumber int, projectNumber int) (*ProjectItem, error) {
 	// Split repo into owner and name
 	owner, repo := c.splitRepo()
-	
+
 	query := `
 		query($owner: String!, $repo: String!, $issueNumber: Int!, $projectNumber: Int!) {
 			repository(owner: $owner, name: $repo) {
@@ -85,24 +85,24 @@ func (c *Client) GetProjectItemByIssue(issueNumber int, projectNumber int) (*Pro
 			}
 		}
 	`
-	
+
 	variables := map[string]interface{}{
 		"owner":         owner,
 		"repo":          repo,
 		"issueNumber":   issueNumber,
 		"projectNumber": projectNumber,
 	}
-	
+
 	resp, err := c.executeGraphQL(query, variables)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Parse the response
 	projectItem := &ProjectItem{
 		IssueNumber: issueNumber,
 	}
-	
+
 	// Navigate through the response structure
 	if repo, ok := resp.Data["repository"].(map[string]interface{}); ok {
 		if issue, ok := repo["issue"].(map[string]interface{}); ok {
@@ -119,7 +119,7 @@ func (c *Client) GetProjectItemByIssue(issueNumber int, projectNumber int) (*Pro
 					}
 				}
 			}
-			
+
 			// Get project items
 			if projectItems, ok := issue["projectItems"].(map[string]interface{}); ok {
 				if nodes, ok := projectItems["nodes"].([]interface{}); ok && len(nodes) > 0 {
@@ -134,7 +134,7 @@ func (c *Client) GetProjectItemByIssue(issueNumber int, projectNumber int) (*Pro
 									if projID, ok := project["id"].(string); ok {
 										projectItem.ProjectID = projID
 									}
-									
+
 									// Parse field values
 									if fieldValues, ok := itemNode["fieldValues"].(map[string]interface{}); ok {
 										if fieldNodes, ok := fieldValues["nodes"].([]interface{}); ok {
@@ -154,21 +154,21 @@ func (c *Client) GetProjectItemByIssue(issueNumber int, projectNumber int) (*Pro
 			}
 		}
 	}
-	
+
 	return projectItem, nil
 }
 
 // parseProjectField parses a single project field value.
 func (c *Client) parseProjectField(field map[string]interface{}, item *ProjectItem) {
 	var fieldName string
-	
+
 	// Get field name from different field types
 	if fieldInfo, ok := field["field"].(map[string]interface{}); ok {
 		if name, ok := fieldInfo["name"].(string); ok {
 			fieldName = name
 		}
 	}
-	
+
 	// Parse based on field name and type
 	switch fieldName {
 	case "Hours":
@@ -190,7 +190,7 @@ func (c *Client) parseProjectField(field map[string]interface{}, item *ProjectIt
 // UpdateProjectField updates a custom field value in GitHub Projects V2.
 func (c *Client) UpdateProjectField(projectID string, itemID string, fieldID string, value interface{}) error {
 	var mutation string
-	
+
 	// Determine the mutation based on value type
 	switch value.(type) {
 	case string:
@@ -230,14 +230,14 @@ func (c *Client) UpdateProjectField(projectID string, itemID string, fieldID str
 	default:
 		return fmt.Errorf("unsupported field value type")
 	}
-	
+
 	variables := map[string]interface{}{
 		"projectId": projectID,
 		"itemId":    itemID,
 		"fieldId":   fieldID,
 		"value":     value,
 	}
-	
+
 	_, err := c.executeGraphQL(mutation, variables)
 	return err
 }
@@ -264,16 +264,16 @@ func (c *Client) GetProjectFieldID(projectID string, fieldName string) (string, 
 			}
 		}
 	`
-	
+
 	variables := map[string]interface{}{
 		"projectId": projectID,
 	}
-	
+
 	resp, err := c.executeGraphQL(query, variables)
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Parse response to find field ID
 	if node, ok := resp.Data["node"].(map[string]interface{}); ok {
 		if fields, ok := node["fields"].(map[string]interface{}); ok {
@@ -290,7 +290,7 @@ func (c *Client) GetProjectFieldID(projectID string, fieldName string) (string, 
 			}
 		}
 	}
-	
+
 	return "", fmt.Errorf("field '%s' not found in project", fieldName)
 }
 
@@ -300,40 +300,40 @@ func (c *Client) executeGraphQL(query string, variables map[string]interface{}) 
 		Query:     query,
 		Variables: variables,
 	}
-	
+
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal GraphQL request: %w", err)
 	}
-	
+
 	req, err := http.NewRequest("POST", "https://api.github.com/graphql", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GraphQL request: %w", err)
 	}
-	
+
 	req.Header.Set("Authorization", "Bearer "+c.botToken)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := c.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("GraphQL request failed: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("GraphQL API error: %s (status: %d)", string(body), resp.StatusCode)
 	}
-	
+
 	var graphQLResp GraphQLResponse
 	if err := json.NewDecoder(resp.Body).Decode(&graphQLResp); err != nil {
 		return nil, fmt.Errorf("failed to decode GraphQL response: %w", err)
 	}
-	
+
 	if len(graphQLResp.Errors) > 0 {
 		return nil, fmt.Errorf("GraphQL errors: %v", graphQLResp.Errors)
 	}
-	
+
 	return &graphQLResp, nil
 }
 

@@ -57,7 +57,7 @@ func handleSyncProject(wrikeClient *wrike.Client, githubClient *github.Client, c
 	// For now, log a message - in production, you'd query the GraphQL API to get the content_node_id
 	log.Printf("Project item %s updated in project %s", config.GitHubProjectItemID, config.GitHubProjectID)
 	log.Println("Note: Full project sync implementation requires querying the issue number from the project item")
-	
+
 	// This would require additional GraphQL queries to:
 	// 1. Get the issue number from the project item
 	// 2. Read the custom field values
@@ -126,7 +126,7 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 
 	// Calculate total hours
 	totalHours := metadata.Hours
-	
+
 	// Aggregate hours from sub-issues
 	if len(metadata.SubIssues) > 0 {
 		for _, subIssueNum := range metadata.SubIssues {
@@ -262,7 +262,7 @@ func handleLogHoursCommand(wrikeClient *wrike.Client, githubClient *github.Clien
 				totalHours += subMetadata.Hours
 			}
 		}
-		comment = fmt.Sprintf("Logged from GitHub issue #%s (including %d sub-issues) by %s", 
+		comment = fmt.Sprintf("Logged from GitHub issue #%s (including %d sub-issues) by %s",
 			config.GitHubIssueNumber, len(metadata.SubIssues), user.GitHubUsername)
 	}
 

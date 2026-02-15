@@ -12,12 +12,12 @@ import (
 
 // IssueMetadata holds metadata about a GitHub issue.
 type IssueMetadata struct {
-	Number       int
-	Title        string
-	Body         string
-	WrikeTaskID  string
-	Hours        float64
-	SubIssues    []int
+	Number      int
+	Title       string
+	Body        string
+	WrikeTaskID string
+	Hours       float64
+	SubIssues   []int
 }
 
 var hoursRegex = regexp.MustCompile(`(?i)hours?:\s*([\d.]+)h?`)
@@ -89,11 +89,11 @@ func (c *Client) GetIssueMetadata(issueNumber string) (*IssueMetadata, error) {
 // UpdateIssueBody updates the body of a GitHub issue.
 func (c *Client) UpdateIssueBody(issueNumber string, newBody string) error {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/issues/%s", c.repo, issueNumber)
-	
+
 	payload := map[string]string{
 		"body": newBody,
 	}
-	
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("github: failed to marshal payload: %w", err)
