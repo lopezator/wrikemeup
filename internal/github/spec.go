@@ -117,6 +117,7 @@ func parseSpecEntry(entry string) (SpecEntry, error) {
 		return SpecEntry{}, fmt.Errorf("invalid duration '%s': %w", durationStr, err)
 	}
 	
+	// Note: 0h is valid per spec - means delete this entry
 	return SpecEntry{
 		Date:        date,
 		Hours:       hours,

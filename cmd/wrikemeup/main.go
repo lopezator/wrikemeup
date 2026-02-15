@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/lopezator/wrikemeup/internal/env"
 	"github.com/lopezator/wrikemeup/internal/github"
@@ -283,19 +284,48 @@ func handleBotCommand(wrikeClient *wrike.Client, githubClient *github.Client, co
 	}
 }
 
-// handleLogCommand handles the spec 'log' command.
+// handleLogCommand handles the spec 'log' command with full parent/child aggregation.
 func handleLogCommand(wrikeClient *wrike.Client, githubClient *github.Client, cmd *github.Command, config *wrikemeup.Config, user *userpkg.User) {
-	// Get issue metadata
-	metadata, err := githubClient.GetIssueMetadata(config.GitHubIssueNumber)
+	// Step 1: Determine issue type (standalone/child/parent)
+	rel, err := githubClient.GetIssueRelationship(config.GitHubIssueNumber)
 	if err != nil {
-		log.Fatalf("wrikemeup: failed to get issue metadata: %v", err)
+		log.Fatalf("wrikemeup: failed to determine issue relationship: %v", err)
 	}
 
-	// Get or create Wrike task
+	log.Printf("Issue #%s is type: %s", config.GitHubIssueNumber, rel.Type)
+
+	// Step 2: Check if parent issue - reject direct logs per spec
+	if rel.Type == github.IssueTypeParent {
+		errorMsg := "❌ Cannot log hours directly on a parent issue.\n\n"
+		errorMsg += "This issue has child issues. Please log hours on the child issues instead.\n"
+		errorMsg += "The hours will automatically aggregate to this parent issue."
+		if err := githubClient.PostCommentWithBody(config.GitHubIssueNumber, errorMsg); err != nil {
+			log.Printf("Warning: failed to post error: %v", err)
+		}
+		log.Fatal("wrikemeup: cannot log on parent issue")
+	}
+
+	// Step 3: Find target issue for Wrike task
+	var targetIssue string
+	if rel.Type == github.IssueTypeChild {
+		// Use parent's Wrike task
+		targetIssue = strconv.Itoa(rel.ParentNum)
+		log.Printf("Child issue - using parent #%s for Wrike task", targetIssue)
+	} else {
+		// Standalone - use own
+		targetIssue = config.GitHubIssueNumber
+	}
+
+	// Step 4: Get or create Wrike task (on target issue)
+	targetMetadata, err := githubClient.GetIssueMetadata(targetIssue)
+	if err != nil {
+		log.Fatalf("wrikemeup: failed to get target metadata: %v", err)
+	}
+
 	var wrikeTaskID string
-	if metadata.WrikeTaskID == "" {
+	if targetMetadata.WrikeTaskID == "" {
 		// Create Wrike task
-		task, err := wrikeClient.CreateTask(config.WrikeFolderID, metadata.Title, metadata.Body)
+		task, err := wrikeClient.CreateTask(config.WrikeFolderID, targetMetadata.Title, targetMetadata.Body)
 		if err != nil {
 			errorMsg := fmt.Sprintf("❌ Failed to create Wrike task: %v", err)
 			if postErr := githubClient.PostCommentWithBody(config.GitHubIssueNumber, errorMsg); postErr != nil {
@@ -304,28 +334,67 @@ func handleLogCommand(wrikeClient *wrike.Client, githubClient *github.Client, cm
 			log.Fatalf("wrikemeup: failed to create Wrike task: %v", err)
 		}
 		wrikeTaskID = task.ID
-		
-		// Store Wrike ID
-		if err := githubClient.AddOrUpdateWrikeTaskID(config.GitHubIssueNumber, wrikeTaskID); err != nil {
+
+		// Store Wrike ID on TARGET issue (parent for children, self for standalone)
+		if err := githubClient.AddOrUpdateWrikeTaskID(targetIssue, wrikeTaskID); err != nil {
 			log.Printf("Warning: failed to store Wrike ID: %v", err)
 		}
-		
-		log.Printf("Created Wrike task %s for issue #%s", wrikeTaskID, config.GitHubIssueNumber)
+
+		log.Printf("Created Wrike task %s for issue #%s", wrikeTaskID, targetIssue)
 	} else {
-		wrikeTaskID = metadata.WrikeTaskID
+		wrikeTaskID = targetMetadata.WrikeTaskID
 	}
 
-	// Build daily hours map from entries
-	dailyHours := make(map[string]float64)
-	for _, entry := range cmd.LogEntries {
-		dailyHours[entry.Date] = entry.Hours
+	// Step 5: Aggregate hours using Full Scan algorithm
+	targetIssueNum, _ := strconv.Atoi(targetIssue)
+
+	// Extract dates from log entries
+	targetDates := make([]string, len(cmd.LogEntries))
+	for i, entry := range cmd.LogEntries {
+		targetDates[i] = entry.Date
 	}
 
-	// Build comment for Wrike
+	var finalHours map[string]float64
+
+	if rel.Type == github.IssueTypeChild || (rel.Type == github.IssueTypeStandalone && len(rel.ChildrenNum) > 0) {
+		// Aggregate from children (full scan algorithm)
+		log.Printf("Aggregating hours from children for dates: %v", targetDates)
+		aggregated, err := githubClient.AggregateHoursFromChildren(targetIssueNum, targetDates)
+		if err != nil {
+			log.Fatalf("wrikemeup: failed to aggregate hours: %v", err)
+		}
+
+		// Add this child's hours (from current command)
+		for _, entry := range cmd.LogEntries {
+			if entry.Hours == 0 {
+				// 0h means delete this child's entry
+				delete(aggregated, entry.Date)
+			} else {
+				// For this child's dates, use values from current command
+				// (overrides what was found in scan)
+				aggregated[entry.Date] = entry.Hours
+			}
+		}
+
+		finalHours = aggregated
+	} else {
+		// Standalone with no children - use command hours directly
+		finalHours = make(map[string]float64)
+		for _, entry := range cmd.LogEntries {
+			if entry.Hours > 0 {
+				finalHours[entry.Date] = entry.Hours
+			}
+			// 0h means delete - don't add to map
+		}
+	}
+
+	// Step 6: Sync to Wrike (only mentioned dates)
 	comment := fmt.Sprintf("Logged from GitHub issue #%s by %s", config.GitHubIssueNumber, user.GitHubUsername)
+	if rel.Type == github.IssueTypeChild {
+		comment = fmt.Sprintf("Aggregated from child issue #%s (parent #%s) by %s", config.GitHubIssueNumber, targetIssue, user.GitHubUsername)
+	}
 
-	// Sync to Wrike
-	changes, err := wrikeClient.SyncDailyHoursWithTracking(wrikeTaskID, dailyHours, comment)
+	_, err = wrikeClient.SyncDailyHoursWithTracking(wrikeTaskID, finalHours, comment)
 	if err != nil {
 		errorMsg := fmt.Sprintf("❌ Failed to log hours to Wrike: %v", err)
 		if postErr := githubClient.PostCommentWithBody(config.GitHubIssueNumber, errorMsg); postErr != nil {
@@ -334,9 +403,9 @@ func handleLogCommand(wrikeClient *wrike.Client, githubClient *github.Client, cm
 		log.Fatalf("wrikemeup: failed to log hours: %v", err)
 	}
 
-	log.Printf("Logged %d date(s) to Wrike task %s", len(dailyHours), wrikeTaskID)
+	log.Printf("Logged %d date(s) to Wrike task %s", len(finalHours), wrikeTaskID)
 
-	// Get all current hours
+	// Step 7: Get all current hours from Wrike and reply
 	allHours, err := wrikeClient.GetTimeLogsStructured(wrikeTaskID)
 	if err != nil {
 		log.Printf("Warning: failed to get current hours: %v", err)
@@ -348,8 +417,38 @@ func handleLogCommand(wrikeClient *wrike.Client, githubClient *github.Client, cm
 		hoursMap[tl.TrackedDate] = tl.Hours
 	}
 
-	// Post summary
-	if err := githubClient.PostHoursSummary(config.GitHubIssueNumber, hoursMap, changes); err != nil {
+	// Post summary per spec format
+	summary := fmt.Sprintf("✅ Logged to #%s", targetIssue)
+	if rel.Type == github.IssueTypeChild {
+		summary = fmt.Sprintf("✅ Logged to #%s (parent of #%s)", targetIssue, config.GitHubIssueNumber)
+	}
+	summary += "\n\n"
+
+	// Add date breakdown
+	var dates []string
+	for date := range finalHours {
+		dates = append(dates, date)
+	}
+	// Sort for consistent display
+	for i := 0; i < len(dates); i++ {
+		for j := i + 1; j < len(dates); j++ {
+			if dates[i] > dates[j] {
+				dates[i], dates[j] = dates[j], dates[i]
+			}
+		}
+	}
+
+	dateStrs := make([]string, len(dates))
+	for i, date := range dates {
+		hours := finalHours[date]
+		dateStrs[i] = fmt.Sprintf("%s: %.1fh", date, hours)
+	}
+	summary += strings.Join(dateStrs, ", ")
+
+	// Add Wrike link
+	summary += fmt.Sprintf("\n\nView in Wrike: https://www.wrike.com/open.htm?id=%s", wrikeTaskID)
+
+	if err := githubClient.PostCommentWithBody(config.GitHubIssueNumber, summary); err != nil {
 		log.Printf("Warning: failed to post summary: %v", err)
 	}
 
