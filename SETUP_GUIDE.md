@@ -8,9 +8,25 @@
 
 1. You mark a GitHub issue as a "Wrike Parent" (using label `wrike-parent`)
 2. Bot auto-creates a Wrike task and links it (adds task ID to issue body)
-3. Developers log hours in child issues: `Hours: 4.5h`
-4. When parent issue closes/updates → Bot aggregates ALL child hours and logs to Wrike
+3. Developers log hours in **comments**: `Hours: 16: 4.5h, 17: 3h`
+4. Bot **automatically syncs** and shows current state!
 5. Done! ✅
+
+### Hour Format (Simple!)
+
+**One line, comma-separated:**
+```
+Hours: 16: 3h, 17: 4.5h, 18: 2h
+```
+
+**Date formats:**
+- `16: 3h` → Day only (current month/year)
+- `03-16: 4h` → Month-day (current year)
+- `2024-02-16: 5h` → Full date
+
+**Edit/Delete:**
+- Update: `Hours: 16: 5h` (replaces old value)
+- Delete: `Hours: 16: 0h` (removes entry)
 
 ---
 
@@ -434,54 +450,79 @@ Add more users to the `USERS` JSON:
 ### Q: What happens if I close then reopen an issue?
 **A:** Bot tracks "Last Synced" so it won't double-log. Only new hours are logged.
 
-### Q: How do I log hours to specific dates (e.g., 3h on Feb 16, 5h on Feb 18)?
-**A:** Add a comment with the new format:
-```markdown
-Hours:
-- 16 = 3h
-- 18 = 5h
+### Q: How do I log hours to specific dates?
+**A:** Add a comment with the new simple format:
 ```
-Bot automatically logs to correct dates! ✅
+Hours: 16: 3h, 17: 4.5h, 18: 2h
+```
+- Comma-separated, one line!
+- Day only (16: 3h) uses current month/year
+- Month-day (03-16: 4h) uses current year
+- Full date (2024-02-16: 5h) for any date
+
+### Q: Do I have to repeat all days when adding hours?
+**A: No!** Incremental logging - just add new days:
+```
+# First comment:
+Hours: 16: 3h
+
+# Later, second comment (day 16 kept automatically):
+Hours: 17: 4.5h, 18: 2h
+```
+Bot aggregates ALL comments!
 
 ### Q: Can I edit hours after logging them?
-**A: Yes!** Just edit your comment:
-```markdown
-# Change from:
-Hours:
-- 16 = 3h
-
-# To:
-Hours:
-- 16 = 5h
+**A: Yes!** Just add a new comment with updated hours:
 ```
-Bot detects the change and updates Wrike! Shows "Updated: 3.00h → 5.00h"
+# Original:
+Hours: 16: 3h
+
+# Update (new comment):
+Hours: 16: 5h
+```
+Latest value wins! Bot shows "Updated: 3.00h → 5.00h"
 
 ### Q: Can I delete logged hours?
-**A: Yes!** Remove the line from your comment:
-```markdown
-# Delete the line for day 16
-Hours:
-- 17 = 4h
-- 18 = 2h
+**A: Yes!** Set hours to 0h:
 ```
-Bot detects deletion and removes from Wrike! Shows "Deleted: 3.00h"
+Hours: 16: 0h
+```
+Bot removes day 16 and shows "Deleted"
+
+### Q: What if I use wrong format?
+**A:** Bot posts helpful error message with:
+- What's wrong
+- Correct format examples
+- Continues syncing valid entries
+
+Example error:
+```
+⚠️ Hour Logging Format Errors
+
+1. Invalid entry format: '16=3h'. Expected: '16: 3h'
+
+Correct Format:
+Hours: 16: 3h, 17: 4.5h, 18: 2h
+```
 
 ### Q: Does the bot show what was logged?
-**A: Yes!** Bot responds with a summary table:
+**A: Yes!** Bot always shows CURRENT STATE (all logged hours):
+
 | Date | Hours | Status |
 |------|-------|--------|
-| 2024-02-16 | 3.00h | Added |
-| 2024-02-17 | 4.00h | Updated: 2.00h → 4.00h |
+| 2024-02-16 | 3.00h | ✓ |
+| 2024-02-17 | 4.50h | Added |
+| 2024-02-18 | 2.00h | ✓ |
 
-**Total: 7.00h**
+**Total: 9.50h**
 
 ### Q: What if developers change hours directly in Wrike?
 **A:** The bot handles this gracefully. On next sync, it compares current GitHub hours with Wrike and syncs the difference. Manual Wrike changes won't break the system.
 
 ### Q: Can I use GitHub Projects custom fields for daily hours?
-**A:** Use comments instead! Comments support the smart date format and full edit/delete features.
+**A:** Use comments for hours! Comments support the smart date format and full edit/delete features.
 1. Set "Wrike Parent" custom field = "Yes" (marks as parent)
-2. Add comment: `Hours:\n- 16 = 3h\n- 17 = 4h`
+2. Add comment: `Hours: 16: 3h, 17: 4h`
 3. Edit comment → Auto-syncs to Wrike with summary!
 
 ### Q: Do I need to run `@wrikemeup sync`?
