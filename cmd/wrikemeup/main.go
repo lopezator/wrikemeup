@@ -185,20 +185,25 @@ func handleSyncHours(wrikeClient *wrike.Client, githubClient *github.Client, con
 	// Calculate incremental hours (delta since last sync)
 	hoursToLog := totalHours - metadata.LastSyncedHours
 
-	// If using daily breakdown, log to specific dates
+	// If using daily breakdown, use smart sync with tracking
 	if len(totalDailyHours) > 0 {
-		// For daily hours, we need to track which dates are new
-		// For simplicity, log all daily hours (Wrike handles duplicates)
-		comment := fmt.Sprintf("Auto-synced from GitHub issue #%s (aggregated %d child issues)", config.GitHubIssueNumber, len(childIssues))
-		if len(childIssues) == 0 {
-			comment = fmt.Sprintf("Auto-synced from GitHub issue #%s", config.GitHubIssueNumber)
+		comment := fmt.Sprintf("Auto-synced from GitHub issue #%s", config.GitHubIssueNumber)
+		if len(childIssues) > 0 {
+			comment = fmt.Sprintf("Auto-synced from GitHub issue #%s (aggregated %d child issues)", config.GitHubIssueNumber, len(childIssues))
 		}
 
-		if err := wrikeClient.LogDailyHours(metadata.WrikeTaskID, totalDailyHours, comment); err != nil {
-			log.Fatalf("wrikemeup: failed to log daily hours to Wrike: %v", err)
+		// Use new sync with tracking (handles add/update/delete)
+		changes, err := wrikeClient.SyncDailyHoursWithTracking(metadata.WrikeTaskID, totalDailyHours, comment)
+		if err != nil {
+			log.Fatalf("wrikemeup: failed to sync hours to Wrike: %v", err)
 		}
 
 		log.Printf("Successfully synced %d days of hours to Wrike", len(totalDailyHours))
+
+		// Post summary table to GitHub
+		if err := githubClient.PostHoursSummary(config.GitHubIssueNumber, totalDailyHours, changes); err != nil {
+			log.Printf("Warning: failed to post hours summary: %v", err)
+		}
 	} else if hoursToLog > 0 {
 		// Incremental logging: only log the difference since last sync
 		comment := fmt.Sprintf("Auto-synced %.2fh from GitHub issue #%s (aggregated %d child issues)", hoursToLog, config.GitHubIssueNumber, len(childIssues))

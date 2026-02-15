@@ -32,6 +32,11 @@ Never gonna give you up, never gonna let you down... but it will log your hours 
 WrikeMeUp is a GitHub automation bot that seamlessly integrates GitHub issues with Wrike tasks for hour tracking:
 
 - **💬 Comment-Based Logging**: Log hours via comments (full traceability!)
+- **📊 Auto Summary Tables**: Bot responds with formatted hour summaries
+- **✏️ Edit Support**: Update hours (e.g., `16 = 2h` → `16 = 5h`)
+- **🗑️ Delete Support**: Remove hour entries by deleting comment lines
+- **🔄 Smart Sync**: Automatically detects adds/updates/deletes
+- **🛡️ Wrike-Safe**: Handles manual Wrike edits gracefully
 - **🗓️ Smart Date Format**: Only specify what's needed (day/month-day/full date)
 - **📊 Multiple Entries**: Log multiple days in one comment
 - **🔗 Auto-link Issues to Wrike Tasks**: Automatically create and link Wrike tasks from GitHub issues
@@ -52,12 +57,55 @@ Hours:
 - 17 = 4.5h
 - 18 = 2h
 
-Bot automatically logs:
-- 3h on Feb 16 (current month/year)
-- 4.5h on Feb 17
-- 2h on Feb 18
-✅ Full traceability in comments!
+Bot automatically logs and responds:
 ```
+
+| Date | Hours | Status |
+|------|-------|--------|
+| 2024-02-16 | 3.00h | Added |
+| 2024-02-17 | 4.50h | Added |
+| 2024-02-18 | 2.00h | Added |
+
+**Total: 9.50h**
+
+**Editing Hours:**
+```markdown
+# Update your comment (change 3h to 5h):
+
+Hours:
+- 16 = 5h   ← Changed from 3h
+- 17 = 4.5h
+- 18 = 2h
+
+Bot detects the change:
+```
+
+| Date | Hours | Status |
+|------|-------|--------|
+| 2024-02-16 | 5.00h | Updated: 3.00h → 5.00h |
+| 2024-02-17 | 4.50h | Unchanged: 4.50h |
+| 2024-02-18 | 2.00h | Unchanged: 2.00h |
+
+**Total: 11.50h**
+
+**Deleting Hours:**
+```markdown
+# Remove a line from your comment:
+
+Hours:
+- 16 = 5h
+- 18 = 2h   ← Deleted line 17
+
+Bot detects deletion:
+```
+
+| Date | Hours | Status |
+|------|-------|--------|
+| 2024-02-16 | 5.00h | Unchanged: 5.00h |
+| 2024-02-17 | - | Deleted: 4.50h |
+| 2024-02-18 | 2.00h | Unchanged: 2.00h |
+
+**Total: 7.00h**
 
 **Smart Date Formats**
 ```markdown
@@ -229,7 +277,41 @@ Hours:
 
 ✅ Full history preserved in comments!
 
-### Example 2: Child Issues Aggregation
+### Example 2: Editing and Correcting Hours
+
+**Initial comment:**
+```markdown
+Hours:
+- 16 = 2h
+- 17 = 3h
+```
+
+**Bot responds:**
+| Date | Hours | Status |
+|------|-------|--------|
+| 2024-02-16 | 2.00h | Added |
+| 2024-02-17 | 3.00h | Added |
+
+**Total: 5.00h**
+
+**Realize you worked more on the 16th, edit comment:**
+```markdown
+Hours:
+- 16 = 5h  ← Changed from 2h
+- 17 = 3h
+```
+
+**Bot responds:**
+| Date | Hours | Status |
+|------|-------|--------|
+| 2024-02-16 | 5.00h | Updated: 2.00h → 5.00h |
+| 2024-02-17 | 3.00h | Unchanged: 3.00h |
+
+**Total: 8.00h**
+
+✅ Wrike updated automatically!
+
+### Example 3: Child Issues Aggregation
 
 **Parent (#200):**
 ```markdown
@@ -258,7 +340,7 @@ Hours:
 - Feb 18: 2h
 - **Total: 8.5h to Wrike** ✅
 
-### Example 3: Cross-Month Logging
+### Example 4: Cross-Month Logging
 
 **Comment:**
 ```markdown

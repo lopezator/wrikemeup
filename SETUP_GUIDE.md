@@ -435,32 +435,57 @@ Add more users to the `USERS` JSON:
 **A:** Bot tracks "Last Synced" so it won't double-log. Only new hours are logged.
 
 ### Q: How do I log hours to specific dates (e.g., 3h on Feb 16, 5h on Feb 18)?
-**A:** Use daily breakdown format in issue body:
+**A:** Add a comment with the new format:
 ```markdown
-Hours: 2024-02-16: 3h, 2024-02-18: 5h
+Hours:
+- 16 = 3h
+- 18 = 5h
 ```
-Edit & save → Bot logs 3h to Feb 16, 5h to Feb 18! ✅
+Bot automatically logs to correct dates! ✅
+
+### Q: Can I edit hours after logging them?
+**A: Yes!** Just edit your comment:
+```markdown
+# Change from:
+Hours:
+- 16 = 3h
+
+# To:
+Hours:
+- 16 = 5h
+```
+Bot detects the change and updates Wrike! Shows "Updated: 3.00h → 5.00h"
+
+### Q: Can I delete logged hours?
+**A: Yes!** Remove the line from your comment:
+```markdown
+# Delete the line for day 16
+Hours:
+- 17 = 4h
+- 18 = 2h
+```
+Bot detects deletion and removes from Wrike! Shows "Deleted: 3.00h"
+
+### Q: Does the bot show what was logged?
+**A: Yes!** Bot responds with a summary table:
+| Date | Hours | Status |
+|------|-------|--------|
+| 2024-02-16 | 3.00h | Added |
+| 2024-02-17 | 4.00h | Updated: 2.00h → 4.00h |
+
+**Total: 7.00h**
+
+### Q: What if developers change hours directly in Wrike?
+**A:** The bot handles this gracefully. On next sync, it compares current GitHub hours with Wrike and syncs the difference. Manual Wrike changes won't break the system.
 
 ### Q: Can I use GitHub Projects custom fields for daily hours?
-**A:** Projects V2 fields can only store single values. Use the **issue body** for daily breakdown:
+**A:** Use comments instead! Comments support the smart date format and full edit/delete features.
 1. Set "Wrike Parent" custom field = "Yes" (marks as parent)
-2. Add hours in issue body: `Hours: 2024-02-16: 3h, 2024-02-18: 5h`
-3. Edit issue → Auto-syncs to correct dates!
+2. Add comment: `Hours:\n- 16 = 3h\n- 17 = 4h`
+3. Edit comment → Auto-syncs to Wrike with summary!
 
 ### Q: Do I need to run `@wrikemeup sync`?
-**A: No!** Just edit the issue. Bot automatically syncs when you save changes.
-
-### Q: What if I worked 32h total but across multiple days?
-**A:** Use daily breakdown to track which hours were on which days:
-```markdown
-Hours: 2024-02-15: 8h, 2024-02-16: 8h, 2024-02-17: 8h, 2024-02-18: 8h
-```
-
-### Q: How does incremental logging work?
-**A:** Bot tracks "Last Synced" in issue body:
-- Day 1: `Hours: 4h` → Bot logs 4h, updates "Last Synced: 4h"
-- Day 2: `Hours: 8h` → Bot logs 4h more (8-4=4), updates "Last Synced: 8h"
-- No duplicates! ✅
+**A: No!** Just add or edit comments. Bot automatically syncs when you save changes.
 
 ---
 

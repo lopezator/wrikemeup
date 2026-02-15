@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sort"
+	"strings"
 )
 
 // Client represents a GitHub client that can be used to interact with the GitHub API.
@@ -62,4 +64,43 @@ func (c *Client) PostCommentWithBody(issueNumber string, comment string) error {
 		return fmt.Errorf("wrikemeup: GitHub API error: %s", string(bodyBytes))
 	}
 	return nil
+}
+
+// PostHoursSummary posts a formatted summary of logged hours as a comment.
+func (c *Client) PostHoursSummary(issueNumber string, dailyHours map[string]float64, changes map[string]string) error {
+	var summary strings.Builder
+	summary.WriteString("## ✅ Hours Logged to Wrike\n\n")
+	summary.WriteString("| Date | Hours | Status |\n")
+	summary.WriteString("|------|-------|--------|\n")
+
+	// Sort dates for consistent display
+	dates := make([]string, 0, len(dailyHours))
+	for date := range dailyHours {
+		dates = append(dates, date)
+	}
+	sort.Strings(dates)
+
+	totalHours := 0.0
+	for _, date := range dates {
+		hours := dailyHours[date]
+		totalHours += hours
+
+		status := "Added"
+		if change, ok := changes[date]; ok {
+			status = change
+		}
+
+		summary.WriteString(fmt.Sprintf("| %s | %.2fh | %s |\n", date, hours, status))
+	}
+
+	// Check for deletions
+	for date, change := range changes {
+		if strings.HasPrefix(change, "Deleted:") {
+			summary.WriteString(fmt.Sprintf("| %s | - | %s |\n", date, change))
+		}
+	}
+
+	summary.WriteString(fmt.Sprintf("\n**Total: %.2fh**\n", totalHours))
+
+	return c.PostCommentWithBody(issueNumber, summary.String())
 }
